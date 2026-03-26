@@ -204,12 +204,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
             // Layer 1: Solid background
             Container(color: theme.backgroundColor),
 
-            // Layer 2: Shader effect (only rebuilds on scroll, not content)
-            ValueListenableBuilder<double>(
-              valueListenable: _scrollOffset,
-              builder: (_, offset, _) => ShaderBackground(
-                theme: theme,
-                scrollOffset: offset,
+            // Layer 2: Shader effect (isolated from content rebuilds)
+            RepaintBoundary(
+              child: ValueListenableBuilder<double>(
+                valueListenable: _scrollOffset,
+                builder: (_, offset, _) => ShaderBackground(
+                  theme: theme,
+                  scrollOffset: offset,
+                ),
               ),
             ),
 

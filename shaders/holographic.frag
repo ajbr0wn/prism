@@ -44,12 +44,12 @@ float gnoise(vec2 p) {
            * 0.5 + 0.5; // remap to 0..1
 }
 
-// Fractal Brownian Motion with gradient noise
+// Fractal Brownian Motion with gradient noise (3 octaves for mobile perf)
 float fbm(vec2 p) {
     float v = 0.0;
     float a = 0.5;
     vec2 shift = vec2(100.0);
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 3; i++) {
         v += a * gnoise(p);
         p = p * 2.0 + shift;
         a *= 0.5;

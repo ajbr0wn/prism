@@ -8,6 +8,10 @@ class Hyphenation {
   static final instance = Hyphenation._();
   Hyphenation._();
 
+  // Cache: input text hashCode -> hyphenated result
+  final Map<int, String> _cache = {};
+  static const _maxCacheSize = 500;
+
   static const _softHyphen = '\u00AD';
   static const _minWordLength = 6;
   static const _minLeft = 2; // minimum chars before first break
@@ -16,16 +20,27 @@ class Hyphenation {
   static const _vowels = 'aeiouyAEIOUY';
 
   /// Process a full text string, hyphenating eligible words.
+  /// Results are cached by text hash to avoid recomputing on re-renders.
   String process(String text) {
-    return text.replaceAllMapped(
+    final key = text.hashCode;
+    final cached = _cache[key];
+    if (cached != null) return cached;
+
+    final result = text.replaceAllMapped(
       RegExp(r"[a-zA-Z'\u2019]{6,}"),
       (match) {
         final word = match.group(0)!;
-        // Skip words that look like acronyms or ALL CAPS
         if (word == word.toUpperCase() && word.length <= 6) return word;
         return hyphenateWord(word);
       },
     );
+
+    // LRU-style cache: evict oldest when full
+    if (_cache.length >= _maxCacheSize) {
+      _cache.remove(_cache.keys.first);
+    }
+    _cache[key] = result;
+    return result;
   }
 
   /// Insert soft hyphens into a single word at valid break points.
