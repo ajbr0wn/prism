@@ -5,6 +5,7 @@ import '../models/book.dart';
 import '../models/reading_theme.dart';
 import '../services/library_service.dart';
 import '../services/theme_service.dart';
+import 'theme_editor_screen.dart';
 
 class ThemePickerScreen extends StatelessWidget {
   final String bookId;
@@ -75,8 +76,13 @@ class ThemePickerScreen extends StatelessWidget {
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                   ),
-                  itemCount: themeService.allThemes.length,
+                  itemCount: themeService.allThemes.length + 1, // +1 for create button
                   itemBuilder: (context, index) {
+                    if (index == themeService.allThemes.length) {
+                      return _CreateThemeCard(
+                        onTap: () => _openThemeEditor(context),
+                      );
+                    }
                     final theme = themeService.allThemes[index];
                     final isActive = theme.id == activeTheme.id;
 
@@ -84,6 +90,9 @@ class ThemePickerScreen extends StatelessWidget {
                       theme: theme,
                       isActive: isActive,
                       onTap: () => _applyTheme(context, theme),
+                      onLongPress: theme.isBuiltIn
+                          ? null
+                          : () => _showThemeOptions(context, theme),
                     );
                   },
                 ),
@@ -132,23 +141,80 @@ class ThemePickerScreen extends StatelessWidget {
       ),
     );
   }
+
+  void _openThemeEditor(BuildContext context, {ReadingTheme? baseTheme}) {
+    Navigator.pop(context); // close picker
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ThemeEditorScreen(baseTheme: baseTheme),
+      ),
+    );
+  }
+
+  void _showThemeOptions(BuildContext context, ReadingTheme theme) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1a1a2e),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 32, height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 16),
+            Text(theme.name,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined, color: Colors.white70),
+              title: const Text('Edit Theme', style: TextStyle(color: Colors.white70)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _openThemeEditor(context, baseTheme: theme);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Delete Theme', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(ctx);
+                context.read<ThemeService>().deleteCustomTheme(theme.id);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ThemeCard extends StatelessWidget {
   final ReadingTheme theme;
   final bool isActive;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const _ThemeCard({
     required this.theme,
     required this.isActive,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
@@ -245,6 +311,36 @@ class _ThemeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
+      ),
+    );
+  }
+}
+
+class _CreateThemeCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _CreateThemeCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add, color: Colors.white24, size: 28),
+            SizedBox(height: 6),
+            Text(
+              'Create Theme',
+              style: TextStyle(color: Colors.white30, fontSize: 12),
+            ),
+          ],
+        ),
       ),
     );
   }

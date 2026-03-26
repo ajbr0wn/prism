@@ -7,6 +7,11 @@ enum ShaderEffect {
   opalescent,
   prismatic,
   ember,
+  mandelbrot,
+  julia,
+  oilSlick,
+  voronoi,
+  plasma,
 }
 
 class ReadingTheme {
@@ -256,6 +261,76 @@ class ReadingTheme {
     linkColor: Color(0xFF0055aa),
   );
 
+  static const deepFractal = ReadingTheme(
+    id: 'deep-fractal',
+    name: 'Deep Fractal',
+    isBuiltIn: true,
+    backgroundColor: Color(0xFF080812),
+    textColor: Color(0xFFd0cce0),
+    headingColor: Color(0xFFe0c8f0),
+    accentColor: Color(0xFF9060d0),
+    linkColor: Color(0xFFb080e8),
+    shaderEffect: ShaderEffect.mandelbrot,
+    shaderIntensity: 0.08,
+    vignetteIntensity: 0.15,
+  );
+
+  static const dreamscape = ReadingTheme(
+    id: 'dreamscape',
+    name: 'Dreamscape',
+    isBuiltIn: true,
+    backgroundColor: Color(0xFF0a0818),
+    textColor: Color(0xFFc8c0e0),
+    headingColor: Color(0xFFe8b0d0),
+    accentColor: Color(0xFFd070a0),
+    linkColor: Color(0xFFe090b8),
+    shaderEffect: ShaderEffect.julia,
+    shaderIntensity: 0.07,
+    vignetteIntensity: 0.12,
+  );
+
+  static const petrichor = ReadingTheme(
+    id: 'petrichor',
+    name: 'Petrichor',
+    isBuiltIn: true,
+    backgroundColor: Color(0xFF0e1218),
+    textColor: Color(0xFFc8d0d8),
+    headingColor: Color(0xFFa0d8e8),
+    accentColor: Color(0xFF50a0b8),
+    linkColor: Color(0xFF70b8d0),
+    shaderEffect: ShaderEffect.oilSlick,
+    shaderIntensity: 0.08,
+    vignetteIntensity: 0.1,
+  );
+
+  static const crystalline = ReadingTheme(
+    id: 'crystalline',
+    name: 'Crystalline',
+    isBuiltIn: true,
+    backgroundColor: Color(0xFF10101a),
+    textColor: Color(0xFFc0c8d8),
+    headingColor: Color(0xFFa8c0e0),
+    accentColor: Color(0xFF5080c0),
+    linkColor: Color(0xFF6898d8),
+    shaderEffect: ShaderEffect.voronoi,
+    shaderIntensity: 0.06,
+    vignetteIntensity: 0.1,
+  );
+
+  static const neonDream = ReadingTheme(
+    id: 'neon-dream',
+    name: 'Neon Dream',
+    isBuiltIn: true,
+    backgroundColor: Color(0xFF0a0a14),
+    textColor: Color(0xFFd8d0e8),
+    headingColor: Color(0xFFf0a0f0),
+    accentColor: Color(0xFFd060e0),
+    linkColor: Color(0xFFe080f0),
+    shaderEffect: ShaderEffect.plasma,
+    shaderIntensity: 0.06,
+    vignetteIntensity: 0.12,
+  );
+
   static const List<ReadingTheme> builtInThemes = [
     midnightPrism,
     opal,
@@ -263,6 +338,11 @@ class ReadingTheme {
     ember,
     prismatic,
     moonstone,
+    deepFractal,
+    dreamscape,
+    petrichor,
+    crystalline,
+    neonDream,
     classicDark,
     classicLight,
   ];
