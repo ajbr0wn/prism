@@ -9,6 +9,7 @@ class ReadingSettings {
   final TextAlign textAlign;
   final bool continuousScroll;
   final bool paragraphIndent;
+  final bool darkMode;
 
   const ReadingSettings({
     this.fontFamily = 'literata',
@@ -18,6 +19,7 @@ class ReadingSettings {
     this.textAlign = TextAlign.justify,
     this.continuousScroll = false,
     this.paragraphIndent = true,
+    this.darkMode = true,
   });
 
   ReadingSettings copyWith({
@@ -28,6 +30,7 @@ class ReadingSettings {
     TextAlign? textAlign,
     bool? continuousScroll,
     bool? paragraphIndent,
+    bool? darkMode,
   }) {
     return ReadingSettings(
       fontFamily: fontFamily ?? this.fontFamily,
@@ -37,6 +40,7 @@ class ReadingSettings {
       textAlign: textAlign ?? this.textAlign,
       continuousScroll: continuousScroll ?? this.continuousScroll,
       paragraphIndent: paragraphIndent ?? this.paragraphIndent,
+      darkMode: darkMode ?? this.darkMode,
     );
   }
 
@@ -93,6 +97,7 @@ class ReadingSettings {
         'textAlign': textAlign.index,
         'continuousScroll': continuousScroll,
         'paragraphIndent': paragraphIndent,
+        'darkMode': darkMode,
       };
 
   factory ReadingSettings.fromJson(Map<String, dynamic> json) =>
@@ -106,5 +111,6 @@ class ReadingSettings {
             .values[json['textAlign'] as int? ?? TextAlign.justify.index],
         continuousScroll: json['continuousScroll'] as bool? ?? false,
         paragraphIndent: json['paragraphIndent'] as bool? ?? true,
+        darkMode: json['darkMode'] as bool? ?? true,
       );
 }

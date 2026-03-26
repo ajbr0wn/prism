@@ -228,6 +228,73 @@ class _ThemeEditorScreenState extends State<ThemeEditorScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                // Color palettes for the selected effect
+                if (_shaderEffect != ShaderEffect.none &&
+                    ReadingTheme.palettes.containsKey(_shaderEffect)) ...[
+                  _SectionLabel('Color Palettes'),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 48,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        for (final palette
+                            in ReadingTheme.palettes[_shaderEffect]!)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: GestureDetector(
+                              onTap: () => setState(() {
+                                _backgroundColor = palette.$2;
+                                _textColor = palette.$3;
+                                _headingColor = palette.$4;
+                                _accentColor = palette.$5;
+                                _linkColor = palette.$6;
+                              }),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: palette.$2,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white24),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      palette.$1,
+                                      style: TextStyle(
+                                        color: palette.$3,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    for (final c in [
+                                      palette.$4,
+                                      palette.$5,
+                                      palette.$6
+                                    ])
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        margin:
+                                            const EdgeInsets.only(right: 3),
+                                        decoration: BoxDecoration(
+                                          color: c,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 // Shader intensity
                 if (_shaderEffect != ShaderEffect.none) ...[
                   _SliderRow(

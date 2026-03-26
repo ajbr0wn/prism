@@ -169,9 +169,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
           orElse: () => widget.book,
         )!;
     final themeService = context.watch<ThemeService>();
-    final theme = themeService.getThemeForBook(currentBook.themeId);
+    final baseTheme = themeService.getThemeForBook(currentBook.themeId);
     final settingsService = context.watch<ReadingSettingsService>();
     final readingSettings = settingsService.settings;
+    // Apply dark/light mode toggle
+    final theme = baseTheme.withDarkMode(readingSettings.darkMode);
     final highlightService = context.watch<HighlightService>();
 
     if (_error != null) {
@@ -260,7 +262,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ],
 
             // Layer 6: Controls overlay
-            if (_showControls) ..._buildControls(theme),
+            if (_showControls) ..._buildControls(theme, readingSettings, settingsService),
           ],
         ),
       ),
@@ -312,8 +314,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       theme: theme,
       settings: readingSettings,
       chapterHighlights: chapterHighlights,
-      onHighlight: (pIdx, start, end, text) {
-        // Override chapter index for continuous scroll
+      onHighlight: (pIdx, start, end, text, colorIndex) {
         final highlight = Highlight(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           bookId: widget.book.id,
@@ -322,9 +323,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
           startOffset: start,
           endOffset: end,
           text: text,
+          colorIndex: colorIndex,
           createdAt: DateTime.now(),
         );
         context.read<HighlightService>().addHighlight(highlight);
+      },
+      onRemoveHighlight: (highlightId) {
+        context.read<HighlightService>().removeHighlight(widget.book.id, highlightId);
       },
     );
     final contentWidgets = renderer.render(chapter.content);
@@ -366,7 +371,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return content;
   }
 
-  List<Widget> _buildControls(dynamic theme) {
+  List<Widget> _buildControls(dynamic theme, dynamic readingSettings, ReadingSettingsService settingsService) {
     return [
       // Tap to dismiss
       Positioned.fill(
@@ -447,6 +452,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       _openReadingSettings();
                     },
                     tooltip: 'Reading Settings',
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      readingSettings.darkMode
+                          ? Icons.light_mode_outlined
+                          : Icons.dark_mode_outlined,
+                      color: Colors.white, size: 22),
+                    onPressed: () {
+                      settingsService.update(readingSettings.copyWith(
+                        darkMode: !readingSettings.darkMode,
+                      ));
+                    },
+                    tooltip: readingSettings.darkMode ? 'Light Mode' : 'Dark Mode',
                   ),
                   IconButton(
                     icon: const Icon(Icons.palette_outlined,

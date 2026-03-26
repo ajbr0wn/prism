@@ -12,8 +12,9 @@ class EpubRenderer {
   final ReadingTheme theme;
   final ReadingSettings settings;
   final List<Highlight> chapterHighlights;
-  final void Function(int paragraphIndex, int start, int end, String text)?
+  final void Function(int paragraphIndex, int start, int end, String text, int colorIndex)?
       onHighlight;
+  final void Function(String highlightId)? onRemoveHighlight;
 
   int _paragraphCounter = 0;
 
@@ -22,6 +23,7 @@ class EpubRenderer {
     required this.settings,
     this.chapterHighlights = const [],
     this.onHighlight,
+    this.onRemoveHighlight,
   });
 
   TextStyle get _baseStyle => settings.applyFont(TextStyle(
@@ -222,28 +224,74 @@ class EpubRenderer {
     final selection = editableTextState.textEditingValue.selection;
     final fullText = editableTextState.textEditingValue.text;
 
-    final buttonItems = List<ContextMenuButtonItem>.of(
-        editableTextState.contextMenuButtonItems);
+    // Check if selection overlaps an existing highlight
+    Highlight? existingHighlight;
+    if (selection.isValid) {
+      for (final h in chapterHighlights.where((h) => h.paragraphIndex == paragraphIndex)) {
+        if (selection.start < h.endOffset && selection.end > h.startOffset) {
+          existingHighlight = h;
+          break;
+        }
+      }
+    }
+
+    final buttonItems = <ContextMenuButtonItem>[];
+
+    // Copy button
+    buttonItems.addAll(editableTextState.contextMenuButtonItems.where(
+        (item) => item.label == 'Copy' || item.label == 'Select All'));
 
     if (selection.isValid && !selection.isCollapsed && onHighlight != null) {
+      // Highlight color buttons (flat, no submenu)
       for (var i = 0; i < Highlight.colors.length; i++) {
+        final colorIndex = i;
         buttonItems.add(ContextMenuButtonItem(
-          label: 'Highlight ${Highlight.colorNames[i]}',
+          label: '\u25CF ${Highlight.colorNames[i]}', // colored circle + name
           onPressed: () {
-            final selectedText =
-                fullText.substring(selection.start, selection.end);
-            onHighlight!(
-                paragraphIndex, selection.start, selection.end, selectedText);
+            // Expand selection to word boundaries
+            final start = _expandToWordStart(fullText, selection.start);
+            final end = _expandToWordEnd(fullText, selection.end);
+            final selectedText = fullText.substring(start, end);
+            onHighlight!(paragraphIndex, start, end, selectedText, colorIndex);
             editableTextState.hideToolbar();
           },
         ));
       }
     }
 
+    // Remove highlight if tapping on an existing one
+    if (existingHighlight != null && onRemoveHighlight != null) {
+      buttonItems.add(ContextMenuButtonItem(
+        label: 'Remove Highlight',
+        onPressed: () {
+          onRemoveHighlight!(existingHighlight!.id);
+          editableTextState.hideToolbar();
+        },
+      ));
+    }
+
     return AdaptiveTextSelectionToolbar.buttonItems(
       anchors: editableTextState.contextMenuAnchors,
       buttonItems: buttonItems,
     );
+  }
+
+  /// Expand offset backward to the start of the word.
+  int _expandToWordStart(String text, int offset) {
+    var i = offset;
+    while (i > 0 && text[i - 1] != ' ' && text[i - 1] != '\n') {
+      i--;
+    }
+    return i;
+  }
+
+  /// Expand offset forward to the end of the word.
+  int _expandToWordEnd(String text, int offset) {
+    var i = offset;
+    while (i < text.length && text[i] != ' ' && text[i] != '\n') {
+      i++;
+    }
+    return i;
   }
 
   Widget _renderBlockquote(XmlElement element) {

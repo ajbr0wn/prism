@@ -108,6 +108,32 @@ class ReadingTheme {
       ? -1.0
       : (shaderEffect.index - 1).toDouble();
 
+  /// Whether this theme has a dark background.
+  bool get isDark => backgroundColor.computeLuminance() < 0.5;
+
+  /// Return a version of this theme in the requested mode.
+  /// If the theme is already in the requested mode, returns itself.
+  ReadingTheme withDarkMode(bool dark) {
+    if (dark == isDark) return this;
+    return copyWith(
+      backgroundColor: _setLightness(backgroundColor, dark ? 0.06 : 0.95),
+      textColor: _setLightness(textColor, dark ? 0.82 : 0.18),
+      headingColor: _setLightness(headingColor, dark ? 0.75 : 0.22),
+      accentColor: _adjustLightness(accentColor, dark ? 0.55 : 0.45),
+      linkColor: _adjustLightness(linkColor, dark ? 0.6 : 0.4),
+    );
+  }
+
+  static Color _setLightness(Color c, double l) {
+    final hsl = HSLColor.fromColor(c);
+    return hsl.withLightness(l.clamp(0.0, 1.0)).toColor();
+  }
+
+  static Color _adjustLightness(Color c, double target) {
+    final hsl = HSLColor.fromColor(c);
+    return hsl.withLightness(target.clamp(0.0, 1.0)).toColor();
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
@@ -239,26 +265,15 @@ class ReadingTheme {
     vignetteIntensity: 0.1,
   );
 
-  static const classicDark = ReadingTheme(
-    id: 'classic-dark',
-    name: 'Classic Dark',
+  static const classic = ReadingTheme(
+    id: 'classic',
+    name: 'Classic',
     isBuiltIn: true,
     backgroundColor: Color(0xFF1e1e1e),
     textColor: Color(0xFFd4d4d4),
     headingColor: Color(0xFFffffff),
     accentColor: Color(0xFF569cd6),
     linkColor: Color(0xFF6cb6ff),
-  );
-
-  static const classicLight = ReadingTheme(
-    id: 'classic-light',
-    name: 'Classic Light',
-    isBuiltIn: true,
-    backgroundColor: Color(0xFFffffff),
-    textColor: Color(0xFF333333),
-    headingColor: Color(0xFF111111),
-    accentColor: Color(0xFF0066cc),
-    linkColor: Color(0xFF0055aa),
   );
 
   static const deepFractal = ReadingTheme(
@@ -343,7 +358,60 @@ class ReadingTheme {
     petrichor,
     crystalline,
     neonDream,
-    classicDark,
-    classicLight,
+    classic,
   ];
+
+  /// Preset color palettes organized by shader effect.
+  /// Each palette is a tuple of (name, bg, text, heading, accent, link).
+  static const Map<ShaderEffect, List<(String, Color, Color, Color, Color, Color)>> palettes = {
+    ShaderEffect.holographic: [
+      ('Midnight', Color(0xFF0a0a14), Color(0xFFe0dfe8), Color(0xFFc8b8f0), Color(0xFF7c6fef), Color(0xFF9d93f0)),
+      ('Ocean', Color(0xFF081018), Color(0xFFc8d8e8), Color(0xFF80c0e0), Color(0xFF4090c0), Color(0xFF60a8d0)),
+      ('Rose', Color(0xFF140a10), Color(0xFFe8d0e0), Color(0xFFf0a0c0), Color(0xFFd06090), Color(0xFFe080a8)),
+      ('Forest', Color(0xFF0a1208), Color(0xFFd0e0c8), Color(0xFF90d0a0), Color(0xFF50a060), Color(0xFF70b880)),
+    ],
+    ShaderEffect.aurora: [
+      ('Nordic', Color(0xFF0d1117), Color(0xFFc9d1d9), Color(0xFF7ee8be), Color(0xFF58a6ff), Color(0xFF79c0ff)),
+      ('Violet', Color(0xFF100a18), Color(0xFFd8c8e8), Color(0xFFc090f0), Color(0xFF9060d0), Color(0xFFb080e0)),
+      ('Emerald', Color(0xFF081410), Color(0xFFc8e0d0), Color(0xFF60d890), Color(0xFF30b060), Color(0xFF48c878)),
+    ],
+    ShaderEffect.oilSlick: [
+      ('Petrol', Color(0xFF0e1218), Color(0xFFc8d0d8), Color(0xFFa0d8e8), Color(0xFF50a0b8), Color(0xFF70b8d0)),
+      ('Copper', Color(0xFF141008), Color(0xFFe0d0b8), Color(0xFFd8a870), Color(0xFFb07830), Color(0xFFc89050)),
+      ('Chrome', Color(0xFF101014), Color(0xFFd8d8e0), Color(0xFFb0b0c8), Color(0xFF7878a0), Color(0xFF9898b8)),
+    ],
+    ShaderEffect.mandelbrot: [
+      ('Cosmic', Color(0xFF080812), Color(0xFFd0cce0), Color(0xFFe0c8f0), Color(0xFF9060d0), Color(0xFFb080e8)),
+      ('Inferno', Color(0xFF120808), Color(0xFFe0ccc8), Color(0xFFf0c080), Color(0xFFd06830), Color(0xFFe88848)),
+      ('Arctic', Color(0xFF081018), Color(0xFFc8d8e8), Color(0xFF80b8e0), Color(0xFF4888c0), Color(0xFF60a0d8)),
+    ],
+    ShaderEffect.julia: [
+      ('Dream', Color(0xFF0a0818), Color(0xFFc8c0e0), Color(0xFFe8b0d0), Color(0xFFd070a0), Color(0xFFe090b8)),
+      ('Nebula', Color(0xFF0a0a18), Color(0xFFc8c8e0), Color(0xFFa0a0f0), Color(0xFF6868d0), Color(0xFF8888e8)),
+      ('Amber', Color(0xFF141008), Color(0xFFe0d8c0), Color(0xFFe8c880), Color(0xFFc09030), Color(0xFFd8a848)),
+    ],
+    ShaderEffect.plasma: [
+      ('Neon', Color(0xFF0a0a14), Color(0xFFd8d0e8), Color(0xFFf0a0f0), Color(0xFFd060e0), Color(0xFFe080f0)),
+      ('Vapor', Color(0xFF080814), Color(0xFFd0d0e8), Color(0xFFa0e0f0), Color(0xFF50b8d0), Color(0xFF70d0e8)),
+      ('Lava', Color(0xFF140808), Color(0xFFe8d0c8), Color(0xFFf09060), Color(0xFFe06020), Color(0xFFf07838)),
+    ],
+    ShaderEffect.ember: [
+      ('Hearth', Color(0xFF1a1210), Color(0xFFe8d5c4), Color(0xFFf0a868), Color(0xFFd47030), Color(0xFFe08848)),
+      ('Crimson', Color(0xFF180808), Color(0xFFe0c8c8), Color(0xFFf07070), Color(0xFFd03030), Color(0xFFe84848)),
+      ('Gold', Color(0xFF141008), Color(0xFFe0d8c0), Color(0xFFe8d080), Color(0xFFc0a030), Color(0xFFd8b848)),
+    ],
+    ShaderEffect.voronoi: [
+      ('Crystal', Color(0xFF10101a), Color(0xFFc0c8d8), Color(0xFFa8c0e0), Color(0xFF5080c0), Color(0xFF6898d8)),
+      ('Jade', Color(0xFF081410), Color(0xFFc0d8c8), Color(0xFF80c8a0), Color(0xFF409868), Color(0xFF58b080)),
+      ('Amethyst', Color(0xFF120a18), Color(0xFFd0c0e0), Color(0xFFc098e0), Color(0xFF8860c0), Color(0xFFA078D8)),
+    ],
+    ShaderEffect.prismatic: [
+      ('Spectrum', Color(0xFFffffff), Color(0xFF2d2d2d), Color(0xFF4a00e0), Color(0xFF8e2de2), Color(0xFF6a1cb0)),
+      ('Pastel', Color(0xFFF8F0FF), Color(0xFF383040), Color(0xFF7050a0), Color(0xFF9070c0), Color(0xFF7858a8)),
+    ],
+    ShaderEffect.opalescent: [
+      ('Pearl', Color(0xFFFAF5EB), Color(0xFF3a3530), Color(0xFF5c4f3f), Color(0xFF8b7355), Color(0xFF6b5a42)),
+      ('Moonlit', Color(0xFF121820), Color(0xFFb8c4d0), Color(0xFFd0e0f0), Color(0xFF6090c0), Color(0xFF80b0e0)),
+    ],
+  };
 }

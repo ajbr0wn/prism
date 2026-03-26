@@ -19,7 +19,7 @@ class Highlight {
     required this.startOffset,
     required this.endOffset,
     required this.text,
-    this.colorIndex = 0,
+    this.colorIndex = 2, // pink default
     required this.createdAt,
   });
 

@@ -186,6 +186,29 @@ class ReadingSettingsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
+              // Dark mode toggle
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        s.darkMode ? Icons.dark_mode : Icons.light_mode,
+                        color: Colors.white54, size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      _label(s.darkMode ? 'Dark Mode' : 'Light Mode'),
+                    ],
+                  ),
+                  Switch(
+                    value: s.darkMode,
+                    activeTrackColor: Colors.white38,
+                    onChanged: (v) =>
+                        _update(context, s.copyWith(darkMode: v)),
+                  ),
+                ],
+              ),
+
               // Paragraph indent toggle
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
