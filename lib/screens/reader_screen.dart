@@ -34,11 +34,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
   final ValueNotifier<double> _scrollOffset = ValueNotifier(0.0);
 
   late PageController _pageController;
+  ScrollController _chapterScrollController = ScrollController();
+  double _savedScrollPosition = 0.0;
 
   @override
   void initState() {
     super.initState();
     _currentChapter = widget.book.lastChapterIndex;
+    _savedScrollPosition = widget.book.lastScrollPosition;
     _pageController = PageController(initialPage: _currentChapter);
     _loadEpub();
     _loadHighlights();
@@ -46,18 +49,32 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   void dispose() {
-    _pageController.dispose();
-    _scrollOffset.dispose();
     _saveProgress();
+    _pageController.dispose();
+    _chapterScrollController.dispose();
+    _scrollOffset.dispose();
     super.dispose();
   }
 
   Future<void> _loadEpub() async {
     try {
       final epub = await EpubService.parse(widget.book.filePath);
-      if (mounted) setState(() => _epub = epub);
+      if (mounted) {
+        setState(() => _epub = epub);
+        // Restore scroll position after the content is built
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _restoreScrollPosition();
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  void _restoreScrollPosition() {
+    if (_chapterScrollController.hasClients && _savedScrollPosition > 0) {
+      _chapterScrollController.jumpTo(_savedScrollPosition);
+      _savedScrollPosition = 0.0;
     }
   }
 
@@ -66,15 +83,20 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void _saveProgress() {
+    final scrollPos = _chapterScrollController.hasClients
+        ? _chapterScrollController.offset
+        : 0.0;
     context.read<LibraryService>().updateProgress(
           widget.book.id,
           chapterIndex: _currentChapter,
-          scrollPosition: 0.0,
+          scrollPosition: scrollPos,
         );
   }
 
   void _onChapterChanged(int index) {
     _saveProgress();
+    _chapterScrollController.dispose();
+    _chapterScrollController = ScrollController();
     setState(() {
       _currentChapter = index;
     });
@@ -294,6 +316,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
     // In paged mode, each chapter is independently scrollable
     if (!readingSettings.continuousScroll) {
+      // Use the tracked scroll controller for the current chapter
+      final isCurrentChapter = chapterIndex == _currentChapter;
       return NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           if (notification is ScrollUpdateNotification) {
@@ -302,6 +326,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           return false;
         },
         child: SingleChildScrollView(
+          controller: isCurrentChapter ? _chapterScrollController : null,
           physics: const BouncingScrollPhysics(),
           child: content,
         ),

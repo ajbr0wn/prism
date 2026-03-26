@@ -40,24 +40,26 @@ class ReadingSettings {
     );
   }
 
-  /// Returns a TextStyle with the selected font applied.
-  TextStyle get fontTextStyle {
+  /// Apply the selected font to a base TextStyle.
+  /// Uses GoogleFonts.xxx(textStyle: base) which is the correct way
+  /// to ensure the font family is properly applied and downloaded.
+  TextStyle applyFont(TextStyle base) {
     switch (fontFamily) {
       case 'literata':
-        return GoogleFonts.literata();
+        return GoogleFonts.literata(textStyle: base);
       case 'merriweather':
-        return GoogleFonts.merriweather();
+        return GoogleFonts.merriweather(textStyle: base);
       case 'lora':
-        return GoogleFonts.lora();
+        return GoogleFonts.lora(textStyle: base);
       case 'sourceSerif4':
-        return GoogleFonts.sourceSerif4();
+        return GoogleFonts.sourceSerif4(textStyle: base);
       case 'serif':
-        return const TextStyle(fontFamily: 'serif');
+        return base.copyWith(fontFamily: 'serif');
       case 'mono':
-        return const TextStyle(fontFamily: 'monospace');
+        return base.copyWith(fontFamily: 'monospace');
       case 'default':
       default:
-        return const TextStyle(); // system sans-serif
+        return base;
     }
   }
 

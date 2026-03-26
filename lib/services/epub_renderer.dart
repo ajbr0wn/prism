@@ -24,12 +24,12 @@ class EpubRenderer {
     this.onHighlight,
   });
 
-  TextStyle get _baseStyle => settings.fontTextStyle.copyWith(
+  TextStyle get _baseStyle => settings.applyFont(TextStyle(
         color: theme.textColor,
         fontSize: settings.fontSize,
         height: settings.lineHeight,
         letterSpacing: 0.1,
-      );
+      ));
 
   /// Render an XHTML string into a list of widgets.
   List<Widget> render(String xhtml) {
@@ -131,13 +131,13 @@ class EpubRenderer {
       ),
       child: SelectableText.rich(
         TextSpan(
-          style: settings.fontTextStyle.copyWith(
+          style: settings.applyFont(TextStyle(
             color: theme.headingColor,
             fontSize: size,
             fontWeight: weight,
             height: 1.3,
             letterSpacing: level <= 2 ? 0.3 : 0.2,
-          ),
+          )),
           children: _renderInlineChildren(element),
         ),
         textAlign: settings.textAlign,
@@ -167,7 +167,7 @@ class EpubRenderer {
     // Add first-line indent (book-style paragraph separation)
     if (settings.paragraphIndent && pIdx > 0) {
       spans = [
-        TextSpan(text: '\u2003\u2003'), // two em-spaces for indent
+        WidgetSpan(child: SizedBox(width: settings.fontSize * 1.5)),
         ...spans,
       ];
     }
