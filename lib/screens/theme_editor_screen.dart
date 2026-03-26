@@ -25,6 +25,8 @@ class _ThemeEditorScreenState extends State<ThemeEditorScreen> {
   late double _shaderIntensity;
   late double _shaderSpeed;
   late double _vignetteIntensity;
+  late double _textShadowBlur;
+  Color? _textShadowColor;
 
   @override
   void initState() {
@@ -40,6 +42,8 @@ class _ThemeEditorScreenState extends State<ThemeEditorScreen> {
     _shaderIntensity = base.shaderIntensity;
     _shaderSpeed = base.shaderSpeed;
     _vignetteIntensity = base.vignetteIntensity;
+    _textShadowBlur = base.textShadowBlur;
+    _textShadowColor = base.textShadowColor;
   }
 
   ReadingTheme get _currentTheme => ReadingTheme(
@@ -55,6 +59,8 @@ class _ThemeEditorScreenState extends State<ThemeEditorScreen> {
         shaderIntensity: _shaderIntensity,
         shaderSpeed: _shaderSpeed,
         vignetteIntensity: _vignetteIntensity,
+        textShadowColor: _textShadowColor,
+        textShadowBlur: _textShadowBlur,
       );
 
   void _save() {
@@ -329,6 +335,76 @@ class _ThemeEditorScreenState extends State<ThemeEditorScreen> {
                   displayValue:
                       '${(_vignetteIntensity * 100).round()}%',
                 ),
+                const SizedBox(height: 16),
+
+                // Text shadow/underlay
+                _SectionLabel('Text Shadow'),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    for (final (label, color) in [
+                      ('Off', null),
+                      ('White', const Color(0xCCFFFFFF)),
+                      ('Black', const Color(0xCC000000)),
+                      ('Warm', const Color(0xAA2A1800)),
+                      ('Cool', const Color(0xAA001428)),
+                    ])
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          child: GestureDetector(
+                            onTap: () => setState(() {
+                              _textShadowColor = color;
+                              if (color == null) {
+                                _textShadowBlur = 0.0;
+                              } else if (_textShadowBlur == 0.0) {
+                                _textShadowBlur = 4.0;
+                              }
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: (_textShadowColor == color ||
+                                        (color == null && _textShadowColor == null))
+                                    ? Colors.white12
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: (_textShadowColor == color ||
+                                          (color == null && _textShadowColor == null))
+                                      ? Colors.white30
+                                      : Colors.white12,
+                                ),
+                              ),
+                              child: Text(
+                                label,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: (_textShadowColor == color ||
+                                          (color == null && _textShadowColor == null))
+                                      ? Colors.white
+                                      : Colors.white38,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (_textShadowColor != null) ...[
+                  const SizedBox(height: 8),
+                  _SliderRow(
+                    label: 'Shadow Blur',
+                    value: _textShadowBlur,
+                    min: 1.0,
+                    max: 16.0,
+                    onChanged: (v) =>
+                        setState(() => _textShadowBlur = v),
+                    displayValue: '${_textShadowBlur.round()}px',
+                  ),
+                ],
                 const SizedBox(height: 32),
               ],
             ),

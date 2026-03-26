@@ -43,6 +43,10 @@ class ReadingTheme {
   // Atmosphere
   final double vignetteIntensity;
 
+  // Text shadow/underlay for readability over effects
+  final Color? textShadowColor;
+  final double textShadowBlur;
+
   const ReadingTheme({
     required this.id,
     required this.name,
@@ -61,6 +65,8 @@ class ReadingTheme {
     this.shaderIntensity = 0.08,
     this.shaderSpeed = 1.0,
     this.vignetteIntensity = 0.0,
+    this.textShadowColor,
+    this.textShadowBlur = 0.0,
   });
 
   ReadingTheme copyWith({
@@ -81,6 +87,8 @@ class ReadingTheme {
     double? shaderIntensity,
     double? shaderSpeed,
     double? vignetteIntensity,
+    Color? textShadowColor,
+    double? textShadowBlur,
   }) {
     return ReadingTheme(
       id: id ?? this.id,
@@ -100,6 +108,8 @@ class ReadingTheme {
       shaderIntensity: shaderIntensity ?? this.shaderIntensity,
       shaderSpeed: shaderSpeed ?? this.shaderSpeed,
       vignetteIntensity: vignetteIntensity ?? this.vignetteIntensity,
+      textShadowColor: textShadowColor ?? this.textShadowColor,
+      textShadowBlur: textShadowBlur ?? this.textShadowBlur,
     );
   }
 
@@ -152,6 +162,8 @@ class ReadingTheme {
         'shaderIntensity': shaderIntensity,
         'shaderSpeed': shaderSpeed,
         'vignetteIntensity': vignetteIntensity,
+        'textShadowColor': textShadowColor?.toARGB32(),
+        'textShadowBlur': textShadowBlur,
       };
 
   factory ReadingTheme.fromJson(Map<String, dynamic> json) => ReadingTheme(
@@ -179,6 +191,11 @@ class ReadingTheme {
         shaderSpeed: (json['shaderSpeed'] as num?)?.toDouble() ?? 1.0,
         vignetteIntensity:
             (json['vignetteIntensity'] as num?)?.toDouble() ?? 0.0,
+        textShadowColor: json['textShadowColor'] != null
+            ? Color(json['textShadowColor'] as int)
+            : null,
+        textShadowBlur:
+            (json['textShadowBlur'] as num?)?.toDouble() ?? 0.0,
       );
 
   // ── Built-in presets ──

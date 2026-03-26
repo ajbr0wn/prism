@@ -31,6 +31,14 @@ class EpubRenderer {
         fontSize: settings.fontSize,
         height: settings.lineHeight,
         letterSpacing: 0.1,
+        shadows: theme.textShadowColor != null && theme.textShadowBlur > 0
+            ? [
+                Shadow(
+                  color: theme.textShadowColor!,
+                  blurRadius: theme.textShadowBlur,
+                ),
+              ]
+            : null,
       ));
 
   /// Render an XHTML string into a list of widgets.
@@ -278,8 +286,11 @@ class EpubRenderer {
 
   /// Expand offset backward to the start of the word.
   int _expandToWordStart(String text, int offset) {
+    if (offset <= 0) return 0;
     var i = offset;
-    while (i > 0 && text[i - 1] != ' ' && text[i - 1] != '\n') {
+    // If we're on a space, don't expand backward
+    if (i > 0 && _isWordBreak(text[i - 1])) return i;
+    while (i > 0 && !_isWordBreak(text[i - 1])) {
       i--;
     }
     return i;
@@ -287,12 +298,18 @@ class EpubRenderer {
 
   /// Expand offset forward to the end of the word.
   int _expandToWordEnd(String text, int offset) {
+    if (offset >= text.length) return text.length;
     var i = offset;
-    while (i < text.length && text[i] != ' ' && text[i] != '\n') {
+    // If we're on a space, don't expand forward
+    if (i < text.length && _isWordBreak(text[i])) return i;
+    while (i < text.length && !_isWordBreak(text[i])) {
       i++;
     }
     return i;
   }
+
+  static bool _isWordBreak(String c) =>
+      c == ' ' || c == '\n' || c == '\t' || c == '\u00AD' || c == '\u2003';
 
   Widget _renderBlockquote(XmlElement element) {
     return Padding(
