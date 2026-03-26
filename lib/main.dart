@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'services/highlight_service.dart';
 import 'services/library_service.dart';
+import 'services/reading_settings_service.dart';
 import 'services/theme_service.dart';
 import 'screens/library_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Dark status bar for the app's dark aesthetic
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: Color(0xFF0e0e16),
+    systemNavigationBarIconBrightness: Brightness.light,
   ));
 
   runApp(const PrismApp());
@@ -27,6 +30,8 @@ class PrismApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => LibraryService()..init()),
         ChangeNotifierProvider(create: (_) => ThemeService()..init()),
+        ChangeNotifierProvider(create: (_) => ReadingSettingsService()..init()),
+        ChangeNotifierProvider(create: (_) => HighlightService()..init()),
       ],
       child: MaterialApp(
         title: 'Prism',

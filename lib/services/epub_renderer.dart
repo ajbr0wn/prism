@@ -1,16 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:xml/xml.dart';
 
+import '../models/highlight.dart';
+import '../models/reading_settings.dart';
 import '../models/reading_theme.dart';
 
 /// Converts EPUB XHTML content into styled Flutter widgets.
+/// Supports highlighting and configurable reading settings.
 class EpubRenderer {
   final ReadingTheme theme;
+  final ReadingSettings settings;
+  final List<Highlight> chapterHighlights;
+  final void Function(int paragraphIndex, int start, int end, String text)?
+      onHighlight;
 
-  const EpubRenderer({required this.theme});
+  int _paragraphCounter = 0;
+
+  EpubRenderer({
+    required this.theme,
+    required this.settings,
+    this.chapterHighlights = const [],
+    this.onHighlight,
+  });
+
+  TextStyle get _baseStyle => TextStyle(
+        color: theme.textColor,
+        fontSize: settings.fontSize,
+        height: settings.lineHeight,
+        fontFamily: settings.effectiveFontFamily,
+        letterSpacing: 0.15,
+      );
 
   /// Render an XHTML string into a list of widgets.
   List<Widget> render(String xhtml) {
+    _paragraphCounter = 0;
     try {
       final doc = XmlDocument.parse(xhtml);
       final body = doc.findAllElements('body').firstOrNull;
@@ -39,7 +62,8 @@ class EpubRenderer {
           case 'h5' || 'h6':
             widgets.add(_renderHeading(child, 5));
           case 'p':
-            widgets.add(_renderParagraph(child));
+            final w = _renderParagraph(child);
+            if (w != null) widgets.add(w);
           case 'div' || 'section' || 'article' || 'aside' || 'nav' ||
                'header' || 'footer' || 'main':
             widgets.addAll(_renderBlockChildren(child));
@@ -50,22 +74,19 @@ class EpubRenderer {
           case 'hr':
             widgets.add(_renderHr());
           case 'br':
-            widgets.add(const SizedBox(height: 8));
-          case 'img' || 'image':
-            // Skip images for now - could add later
+            widgets.add(SizedBox(height: settings.fontSize * 0.5));
+          case 'img' || 'image' || 'svg':
             break;
-          case 'table':
-            // Simplified table rendering
+          case 'table' || 'tbody' || 'thead':
             widgets.addAll(_renderBlockChildren(child));
           case 'tr':
             final spans = _renderInlineChildren(child);
             if (spans.isNotEmpty) {
               widgets.add(_buildParagraphWidget(spans));
             }
-          case 'head' || 'style' || 'script' || 'link' || 'meta':
-            break; // Skip non-content elements
+          case 'head' || 'style' || 'script' || 'link' || 'meta' || 'title':
+            break;
           default:
-            // Try to render as a paragraph if it has text content
             final spans = _renderInlineChildren(child);
             if (spans.isNotEmpty) {
               widgets.add(_buildParagraphWidget(spans));
@@ -84,79 +105,157 @@ class EpubRenderer {
 
   Widget _renderHeading(XmlElement element, int level) {
     final double size;
+    final FontWeight weight;
     switch (level) {
       case 1:
-        size = theme.fontSize * 1.8;
+        size = settings.fontSize * 1.7;
+        weight = FontWeight.w700;
       case 2:
-        size = theme.fontSize * 1.5;
+        size = settings.fontSize * 1.45;
+        weight = FontWeight.w600;
       case 3:
-        size = theme.fontSize * 1.3;
+        size = settings.fontSize * 1.25;
+        weight = FontWeight.w600;
       case 4:
-        size = theme.fontSize * 1.15;
+        size = settings.fontSize * 1.1;
+        weight = FontWeight.w600;
       default:
-        size = theme.fontSize * 1.05;
+        size = settings.fontSize * 1.05;
+        weight = FontWeight.w500;
     }
 
     return Padding(
       padding: EdgeInsets.only(
-        top: theme.fontSize * (level <= 2 ? 1.5 : 1.0),
-        bottom: theme.fontSize * 0.5,
+        top: settings.fontSize * (level <= 2 ? 1.8 : 1.2),
+        bottom: settings.fontSize * 0.6,
       ),
-      child: RichText(
-        text: TextSpan(
+      child: SelectableText.rich(
+        TextSpan(
           style: TextStyle(
             color: theme.headingColor,
             fontSize: size,
-            fontWeight: FontWeight.bold,
+            fontWeight: weight,
             height: 1.3,
-            fontFamily: theme.fontFamily,
+            letterSpacing: level <= 2 ? 0.5 : 0.3,
+            fontFamily: settings.effectiveFontFamily,
           ),
           children: _renderInlineChildren(element),
         ),
+        textAlign: settings.textAlign,
       ),
     );
   }
 
-  Widget _renderParagraph(XmlElement element) {
+  Widget? _renderParagraph(XmlElement element) {
     final spans = _renderInlineChildren(element);
-    if (spans.isEmpty) return const SizedBox.shrink();
+    if (spans.isEmpty) return null;
+
+    final hasContent = spans.any((span) {
+      if (span is TextSpan) {
+        return (span.text != null && span.text!.trim().isNotEmpty) ||
+            (span.children != null && span.children!.isNotEmpty);
+      }
+      return true;
+    });
+    if (!hasContent) return null;
+
     return _buildParagraphWidget(spans);
   }
 
   Widget _buildParagraphWidget(List<InlineSpan> spans) {
+    final pIdx = _paragraphCounter++;
+
+    // Get highlights for this paragraph
+    final pHighlights =
+        chapterHighlights.where((h) => h.paragraphIndex == pIdx).toList();
+
+    // Apply highlight background colors if any
+    List<InlineSpan> styledSpans;
+    if (pHighlights.isNotEmpty) {
+      final plainText = _flattenSpans(spans);
+      final charColors = List<Color?>.filled(plainText.length, null);
+      for (final h in pHighlights) {
+        final color = Highlight.colors[h.colorIndex];
+        for (var i = h.startOffset;
+            i < h.endOffset && i < plainText.length;
+            i++) {
+          charColors[i] = color;
+        }
+      }
+      styledSpans = _HighlightApplier(charColors).process(spans);
+    } else {
+      styledSpans = spans;
+    }
+
+    final textSpan = TextSpan(style: _baseStyle, children: styledSpans);
+
     return Padding(
-      padding: EdgeInsets.only(bottom: theme.fontSize * 0.6),
-      child: RichText(
-        text: TextSpan(
-          style: TextStyle(
-            color: theme.textColor,
-            fontSize: theme.fontSize,
-            height: theme.lineHeight,
-            fontFamily: theme.fontFamily,
-          ),
-          children: spans,
-        ),
+      padding: EdgeInsets.only(bottom: settings.fontSize * 0.75),
+      child: SelectableText.rich(
+        textSpan,
+        textAlign: settings.textAlign,
+        contextMenuBuilder: onHighlight != null
+            ? (context, editableTextState) =>
+                _buildContextMenu(context, editableTextState, pIdx)
+            : null,
       ),
+    );
+  }
+
+  Widget _buildContextMenu(
+    BuildContext context,
+    EditableTextState editableTextState,
+    int paragraphIndex,
+  ) {
+    final selection = editableTextState.textEditingValue.selection;
+    final fullText = editableTextState.textEditingValue.text;
+
+    // Start with default button items
+    final buttonItems =
+        List<ContextMenuButtonItem>.of(
+            editableTextState.contextMenuButtonItems);
+
+    // Add highlight buttons if text is selected
+    if (selection.isValid &&
+        !selection.isCollapsed &&
+        onHighlight != null) {
+      for (var i = 0; i < Highlight.colors.length; i++) {
+        buttonItems.add(ContextMenuButtonItem(
+          label: 'Highlight ${Highlight.colorNames[i]}',
+          onPressed: () {
+            final selectedText =
+                fullText.substring(selection.start, selection.end);
+            onHighlight!(
+                paragraphIndex, selection.start, selection.end, selectedText);
+            editableTextState.hideToolbar();
+          },
+        ));
+      }
+    }
+
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: editableTextState.contextMenuAnchors,
+      buttonItems: buttonItems,
     );
   }
 
   Widget _renderBlockquote(XmlElement element) {
     return Padding(
       padding: EdgeInsets.only(
-        left: theme.fontSize * 1.5,
-        bottom: theme.fontSize * 0.6,
-        top: theme.fontSize * 0.3,
+        left: settings.fontSize * 1.2,
+        bottom: settings.fontSize * 0.75,
+        top: settings.fontSize * 0.4,
       ),
       child: Container(
         decoration: BoxDecoration(
           border: Border(
             left: BorderSide(
-              color: theme.accentColor.withValues(alpha: 0.5),
+              color: theme.accentColor.withValues(alpha: 0.4),
               width: 3,
             ),
           ),
         ),
-        padding: EdgeInsets.only(left: theme.fontSize * 0.8),
+        padding: EdgeInsets.only(left: settings.fontSize * 0.8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: _renderBlockChildren(element),
@@ -166,46 +265,40 @@ class EpubRenderer {
   }
 
   Widget _renderList(XmlElement element, {required bool ordered}) {
-    final items = element
-        .findAllElements('li')
-        .toList();
+    final items = element.findAllElements('li').toList();
 
     return Padding(
       padding: EdgeInsets.only(
-        left: theme.fontSize * 1.2,
-        bottom: theme.fontSize * 0.6,
+        left: settings.fontSize * 1.0,
+        bottom: settings.fontSize * 0.75,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var i = 0; i < items.length; i++)
             Padding(
-              padding: EdgeInsets.only(bottom: theme.fontSize * 0.25),
+              padding: EdgeInsets.only(bottom: settings.fontSize * 0.3),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    width: theme.fontSize * 1.5,
+                    width: settings.fontSize * 1.5,
                     child: Text(
                       ordered ? '${i + 1}.' : '\u2022',
                       style: TextStyle(
                         color: theme.accentColor,
-                        fontSize: theme.fontSize,
-                        height: theme.lineHeight,
+                        fontSize: settings.fontSize,
+                        height: settings.lineHeight,
                       ),
                     ),
                   ),
                   Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          color: theme.textColor,
-                          fontSize: theme.fontSize,
-                          height: theme.lineHeight,
-                          fontFamily: theme.fontFamily,
-                        ),
+                    child: SelectableText.rich(
+                      TextSpan(
+                        style: _baseStyle,
                         children: _renderInlineChildren(items[i]),
                       ),
+                      textAlign: settings.textAlign,
                     ),
                   ),
                 ],
@@ -218,10 +311,16 @@ class EpubRenderer {
 
   Widget _renderHr() {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: theme.fontSize),
-      child: Divider(
-        color: theme.accentColor.withValues(alpha: 0.3),
-        thickness: 1,
+      padding: EdgeInsets.symmetric(vertical: settings.fontSize * 1.2),
+      child: Center(
+        child: Text(
+          '* * *',
+          style: TextStyle(
+            color: theme.accentColor.withValues(alpha: 0.4),
+            fontSize: settings.fontSize,
+            letterSpacing: 8,
+          ),
+        ),
       ),
     );
   }
@@ -253,17 +352,17 @@ class EpubRenderer {
               style: TextStyle(
                 color: theme.linkColor,
                 decoration: TextDecoration.underline,
-                decorationColor: theme.linkColor.withValues(alpha: 0.5),
+                decorationColor: theme.linkColor.withValues(alpha: 0.4),
               ),
               children: _renderInlineChildren(child),
             ));
           case 'br':
             spans.add(const TextSpan(text: '\n'));
           case 'span' || 'small' || 'sub' || 'sup' || 'abbr' || 'code' ||
-               'tt' || 'u':
+               'tt' || 'u' || 'td' || 'th':
             spans.addAll(_renderInlineChildren(child));
-          case 'img' || 'image':
-            break; // Skip inline images for now
+          case 'img' || 'image' || 'svg':
+            break;
           default:
             spans.addAll(_renderInlineChildren(child));
         }
@@ -273,7 +372,100 @@ class EpubRenderer {
     return spans;
   }
 
+  String _flattenSpans(List<InlineSpan> spans) {
+    final buffer = StringBuffer();
+    for (final span in spans) {
+      if (span is TextSpan) {
+        if (span.text != null) buffer.write(span.text);
+        if (span.children != null) {
+          buffer.write(_flattenSpans(span.children!.cast<InlineSpan>()));
+        }
+      }
+    }
+    return buffer.toString();
+  }
+
   Widget _text(String text) {
     return Text(text, style: TextStyle(color: theme.textColor));
+  }
+}
+
+/// Walks a span tree and applies highlight background colors at the
+/// correct character offsets.
+class _HighlightApplier {
+  final List<Color?> charColors;
+  int _offset = 0;
+
+  _HighlightApplier(this.charColors);
+
+  List<InlineSpan> process(List<InlineSpan> spans) {
+    _offset = 0;
+    return _processSpans(spans);
+  }
+
+  List<InlineSpan> _processSpans(List<InlineSpan> spans) {
+    final result = <InlineSpan>[];
+    for (final span in spans) {
+      if (span is TextSpan) {
+        result.addAll(_processTextSpan(span));
+      } else {
+        result.add(span);
+      }
+    }
+    return result;
+  }
+
+  List<InlineSpan> _processTextSpan(TextSpan span) {
+    // Handle spans with direct text
+    if (span.text != null && span.text!.isNotEmpty) {
+      if (span.children == null || span.children!.isEmpty) {
+        // Leaf span: split text at color boundaries
+        return _splitText(span.text!, span.style);
+      } else {
+        // Has both text and children: process text, then children
+        final textParts = _splitText(span.text!, span.style);
+        final childParts =
+            _processSpans(span.children!.cast<InlineSpan>());
+        return [...textParts, ...childParts];
+      }
+    }
+
+    // Handle spans with only children
+    if (span.children != null && span.children!.isNotEmpty) {
+      final processed =
+          _processSpans(span.children!.cast<InlineSpan>());
+      return [TextSpan(style: span.style, children: processed)];
+    }
+
+    return [span];
+  }
+
+  List<InlineSpan> _splitText(String text, TextStyle? baseStyle) {
+    final spans = <InlineSpan>[];
+    var i = 0;
+    while (i < text.length) {
+      final charIdx = _offset + i;
+      final color =
+          charIdx < charColors.length ? charColors[charIdx] : null;
+
+      var j = i + 1;
+      while (j < text.length) {
+        final nextIdx = _offset + j;
+        final nextColor =
+            nextIdx < charColors.length ? charColors[nextIdx] : null;
+        if (nextColor != color) break;
+        j++;
+      }
+
+      final runText = text.substring(i, j);
+      final style = color != null
+          ? (baseStyle ?? const TextStyle()).copyWith(backgroundColor: color)
+          : baseStyle;
+
+      spans.add(TextSpan(text: runText, style: style));
+      i = j;
+    }
+    _offset += text.length;
+    return spans;
   }
 }

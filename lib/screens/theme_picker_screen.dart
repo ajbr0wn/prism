@@ -7,14 +7,21 @@ import '../services/library_service.dart';
 import '../services/theme_service.dart';
 
 class ThemePickerScreen extends StatelessWidget {
-  final Book book;
+  final String bookId;
 
-  const ThemePickerScreen({super.key, required this.book});
+  const ThemePickerScreen({super.key, required this.bookId});
 
   @override
   Widget build(BuildContext context) {
+    // Watch both services so we react to changes immediately
+    final library = context.watch<LibraryService>();
     final themeService = context.watch<ThemeService>();
-    final activeTheme = themeService.getThemeForBook(book.themeId);
+
+    final currentBook = library.books.cast<Book?>().firstWhere(
+          (b) => b!.id == bookId,
+          orElse: () => null,
+        );
+    final activeTheme = themeService.getThemeForBook(currentBook?.themeId);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
@@ -113,7 +120,7 @@ class ThemePickerScreen extends StatelessWidget {
   }
 
   void _applyTheme(BuildContext context, ReadingTheme theme) {
-    context.read<LibraryService>().setBookTheme(book.id, theme.id);
+    context.read<LibraryService>().setBookTheme(bookId, theme.id);
   }
 
   void _setDefault(BuildContext context, ReadingTheme theme) {
@@ -217,7 +224,6 @@ class _ThemeCard extends StatelessWidget {
                     const SizedBox(width: 6),
                   ],
                   const Spacer(),
-                  // Color dots
                   _colorDot(theme.textColor),
                   const SizedBox(width: 3),
                   _colorDot(theme.accentColor),
