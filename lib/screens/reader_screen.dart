@@ -229,7 +229,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  /// Continuous scroll: all chapters in one scrollable view.
+  /// Continuous scroll: lazy-loaded chapters in one scrollable view.
   Widget _buildContinuousScroll(dynamic theme, dynamic readingSettings,
       HighlightService highlightService) {
     return NotificationListener<ScrollNotification>(
@@ -239,27 +239,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
         }
         return false;
       },
-      child: SingleChildScrollView(
+      child: ListView.builder(
         physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var i = 0; i < _epub!.chapters.length; i++) ...[
-              _buildChapterContent(
-                  i, theme, readingSettings, highlightService),
-              if (i < _epub!.chapters.length - 1)
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    vertical: readingSettings.fontSize * 2,
-                    horizontal: readingSettings.horizontalMargins,
-                  ),
-                  child: Divider(
-                    color: theme.accentColor.withValues(alpha: 0.2),
-                  ),
-                ),
-            ],
-          ],
-        ),
+        itemCount: _epub!.chapters.length,
+        itemBuilder: (context, index) {
+          return _buildChapterContent(
+              index, theme, readingSettings, highlightService);
+        },
       ),
     );
   }

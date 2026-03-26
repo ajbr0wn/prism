@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ReadingSettings {
   final String fontFamily;
@@ -7,14 +8,16 @@ class ReadingSettings {
   final double horizontalMargins;
   final TextAlign textAlign;
   final bool continuousScroll;
+  final bool paragraphIndent;
 
   const ReadingSettings({
-    this.fontFamily = 'default',
+    this.fontFamily = 'literata',
     this.fontSize = 18.0,
     this.lineHeight = 1.7,
     this.horizontalMargins = 28.0,
-    this.textAlign = TextAlign.center,
+    this.textAlign = TextAlign.justify,
     this.continuousScroll = false,
+    this.paragraphIndent = true,
   });
 
   ReadingSettings copyWith({
@@ -24,6 +27,7 @@ class ReadingSettings {
     double? horizontalMargins,
     TextAlign? textAlign,
     bool? continuousScroll,
+    bool? paragraphIndent,
   }) {
     return ReadingSettings(
       fontFamily: fontFamily ?? this.fontFamily,
@@ -32,24 +36,37 @@ class ReadingSettings {
       horizontalMargins: horizontalMargins ?? this.horizontalMargins,
       textAlign: textAlign ?? this.textAlign,
       continuousScroll: continuousScroll ?? this.continuousScroll,
+      paragraphIndent: paragraphIndent ?? this.paragraphIndent,
     );
   }
 
-  /// Map font family name to actual Flutter font family string.
-  String? get effectiveFontFamily {
+  /// Returns a TextStyle with the selected font applied.
+  TextStyle get fontTextStyle {
     switch (fontFamily) {
+      case 'literata':
+        return GoogleFonts.literata();
+      case 'merriweather':
+        return GoogleFonts.merriweather();
+      case 'lora':
+        return GoogleFonts.lora();
+      case 'sourceSerif4':
+        return GoogleFonts.sourceSerif4();
       case 'serif':
-        return 'serif';
+        return const TextStyle(fontFamily: 'serif');
       case 'mono':
-        return 'monospace';
+        return const TextStyle(fontFamily: 'monospace');
       case 'default':
       default:
-        return null; // system default (Roboto on Android)
+        return const TextStyle(); // system sans-serif
     }
   }
 
   static const fontOptions = [
     ('default', 'Sans'),
+    ('literata', 'Literata'),
+    ('merriweather', 'Merri'),
+    ('lora', 'Lora'),
+    ('sourceSerif4', 'Source'),
     ('serif', 'Serif'),
     ('mono', 'Mono'),
   ];
@@ -73,17 +90,19 @@ class ReadingSettings {
         'horizontalMargins': horizontalMargins,
         'textAlign': textAlign.index,
         'continuousScroll': continuousScroll,
+        'paragraphIndent': paragraphIndent,
       };
 
   factory ReadingSettings.fromJson(Map<String, dynamic> json) =>
       ReadingSettings(
-        fontFamily: json['fontFamily'] as String? ?? 'default',
+        fontFamily: json['fontFamily'] as String? ?? 'literata',
         fontSize: (json['fontSize'] as num?)?.toDouble() ?? 18.0,
         lineHeight: (json['lineHeight'] as num?)?.toDouble() ?? 1.7,
         horizontalMargins:
             (json['horizontalMargins'] as num?)?.toDouble() ?? 28.0,
-        textAlign:
-            TextAlign.values[json['textAlign'] as int? ?? TextAlign.center.index],
+        textAlign: TextAlign
+            .values[json['textAlign'] as int? ?? TextAlign.justify.index],
         continuousScroll: json['continuousScroll'] as bool? ?? false,
+        paragraphIndent: json['paragraphIndent'] as bool? ?? true,
       );
 }

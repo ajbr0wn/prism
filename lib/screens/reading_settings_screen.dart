@@ -52,21 +52,24 @@ class ReadingSettingsScreen extends StatelessWidget {
               // Font family
               _label('Font'),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  for (final (value, label) in ReadingSettings.fontOptions)
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    for (final (value, label) in ReadingSettings.fontOptions)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
                         child: _OptionChip(
                           label: label,
                           selected: s.fontFamily == value,
                           onTap: () => _update(
                               context, s.copyWith(fontFamily: value)),
+                          minWidth: 64,
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
 
@@ -183,6 +186,20 @@ class ReadingSettingsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
+              // Paragraph indent toggle
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _label('Paragraph Indent'),
+                  Switch(
+                    value: s.paragraphIndent,
+                    activeTrackColor: Colors.white38,
+                    onChanged: (v) =>
+                        _update(context, s.copyWith(paragraphIndent: v)),
+                  ),
+                ],
+              ),
+
               // Continuous scroll toggle
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -226,12 +243,14 @@ class _OptionChip extends StatelessWidget {
   final IconData? icon;
   final bool selected;
   final VoidCallback onTap;
+  final double? minWidth;
 
   const _OptionChip({
     required this.label,
     this.icon,
     required this.selected,
     required this.onTap,
+    this.minWidth,
   });
 
   @override
@@ -240,7 +259,10 @@ class _OptionChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        constraints: minWidth != null
+            ? BoxConstraints(minWidth: minWidth!)
+            : const BoxConstraints(),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(
           color: selected ? Colors.white12 : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
