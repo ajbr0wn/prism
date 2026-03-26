@@ -141,13 +141,14 @@ void main() {
         color += vec3(spark, spark * 0.6, spark * 0.1);
     }
 
-    // ── Mode 5: Mandelbrot ──
+    // ── Mode 5: Mandelbrot (aspect-corrected) ──
     else if (uMode < 5.5) {
+        float aspect = uSize.x / uSize.y;
         float zoom = 2.5 - sin(scrollShift * 0.5 + uTime * 0.02) * 0.5;
-        vec2 c = (uv - 0.5) * zoom + vec2(-0.5, 0.0);
+        vec2 c = vec2((uv.x - 0.5) * aspect, uv.y - 0.5) * zoom + vec2(-0.5, 0.0);
         vec2 z = vec2(0.0);
         float iter = 0.0;
-        for (float i = 0.0; i < 80.0; i++) {
+        for (float i = 0.0; i < 48.0; i++) {
             z = vec2(z.x * z.x - z.y * z.y + c.x, 2.0 * z.x * z.y + c.y);
             if (dot(z, z) > 256.0) { iter = i; break; }
             iter = i;
@@ -161,13 +162,14 @@ void main() {
         }
     }
 
-    // ── Mode 6: Julia Set ──
+    // ── Mode 6: Julia Set (aspect-corrected) ──
     else if (uMode < 6.5) {
+        float aspect = uSize.x / uSize.y;
         float t = uTime * 0.05 + scrollShift * 0.3;
         vec2 c = vec2(-0.7269 + 0.1 * sin(t), 0.1889 + 0.1 * cos(t * 0.7));
-        vec2 z = (uv - 0.5) * 3.0;
+        vec2 z = vec2((uv.x - 0.5) * aspect, uv.y - 0.5) * 3.0;
         float iter = 0.0;
-        for (float i = 0.0; i < 64.0; i++) {
+        for (float i = 0.0; i < 40.0; i++) {
             z = vec2(z.x * z.x - z.y * z.y + c.x, 2.0 * z.x * z.y + c.y);
             if (dot(z, z) > 256.0) { iter = i; break; }
             iter = i;

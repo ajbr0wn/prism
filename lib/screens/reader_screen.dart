@@ -36,10 +36,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
   late PageController _pageController;
   ScrollController _chapterScrollController = ScrollController();
   double _savedScrollPosition = 0.0;
+  late final LibraryService _libraryService;
 
   @override
   void initState() {
     super.initState();
+    _libraryService = context.read<LibraryService>();
     _currentChapter = widget.book.lastChapterIndex;
     _savedScrollPosition = widget.book.lastScrollPosition;
     _pageController = PageController(initialPage: _currentChapter);
@@ -73,8 +75,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   void _restoreScrollPosition() {
     if (_chapterScrollController.hasClients && _savedScrollPosition > 0) {
-      _chapterScrollController.jumpTo(_savedScrollPosition);
-      _savedScrollPosition = 0.0;
+      // Delay slightly to ensure content is fully laid out
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (mounted && _chapterScrollController.hasClients) {
+          final maxScroll = _chapterScrollController.position.maxScrollExtent;
+          _chapterScrollController.jumpTo(
+            _savedScrollPosition.clamp(0.0, maxScroll),
+          );
+        }
+        _savedScrollPosition = 0.0;
+      });
     }
   }
 
@@ -86,11 +96,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final scrollPos = _chapterScrollController.hasClients
         ? _chapterScrollController.offset
         : 0.0;
-    context.read<LibraryService>().updateProgress(
-          widget.book.id,
-          chapterIndex: _currentChapter,
-          scrollPosition: scrollPos,
-        );
+    _libraryService.updateProgress(
+      widget.book.id,
+      chapterIndex: _currentChapter,
+      scrollPosition: scrollPos,
+    );
   }
 
   void _onChapterChanged(int index) {
@@ -229,7 +239,27 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       theme, readingSettings, highlightService),
             ),
 
-            // Layer 5: Controls
+            // Layer 5: Tap zones (always present, easier to hit than center tap)
+            if (!_showControls) ...[
+              Positioned(
+                top: 0, left: 0, right: 0, height: 60,
+                child: GestureDetector(
+                  onTap: _toggleControls,
+                  behavior: HitTestBehavior.translucent,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+              Positioned(
+                bottom: 0, left: 0, right: 0, height: 60,
+                child: GestureDetector(
+                  onTap: _toggleControls,
+                  behavior: HitTestBehavior.translucent,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ],
+
+            // Layer 6: Controls overlay
             if (_showControls) ..._buildControls(theme),
           ],
         ),

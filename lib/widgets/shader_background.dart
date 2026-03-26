@@ -127,7 +127,13 @@ class _ShaderPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ShaderPainter oldDelegate) => true;
+  bool shouldRepaint(_ShaderPainter oldDelegate) {
+    // Cap repaints at ~30fps by quantizing time
+    return (time * 30).round() != (oldDelegate.time * 30).round() ||
+        scrollY != oldDelegate.scrollY ||
+        mode != oldDelegate.mode ||
+        intensity != oldDelegate.intensity;
+  }
 }
 
 /// A simple simulation that increases linearly forever.

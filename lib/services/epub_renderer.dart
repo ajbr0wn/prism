@@ -359,18 +359,30 @@ class EpubRenderer {
               children: _renderInlineChildren(child),
             ));
           case 'sup':
-            // Superscript: smaller text for footnote references
-            spans.add(TextSpan(
-              style: TextStyle(
-                fontSize: settings.fontSize * 0.65,
-                color: theme.linkColor,
+            // Superscript: raised and smaller
+            spans.add(WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Transform.translate(
+                offset: Offset(0, -settings.fontSize * 0.35),
+                child: Text(
+                  _getPlainText(child),
+                  style: TextStyle(
+                    fontSize: settings.fontSize * 0.6,
+                    color: theme.linkColor,
+                  ),
+                ),
               ),
-              children: _renderInlineChildren(child),
             ));
           case 'sub':
-            spans.add(TextSpan(
-              style: TextStyle(fontSize: settings.fontSize * 0.65),
-              children: _renderInlineChildren(child),
+            spans.add(WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Transform.translate(
+                offset: Offset(0, settings.fontSize * 0.2),
+                child: Text(
+                  _getPlainText(child),
+                  style: TextStyle(fontSize: settings.fontSize * 0.6, color: theme.textColor),
+                ),
+              ),
             ));
           case 'a':
             // Check if this is a footnote link (short text, likely a number)
@@ -379,13 +391,19 @@ class EpubRenderer {
                 linkText.length <= 4 && RegExp(r'^\d+$').hasMatch(linkText);
 
             if (isFootnote) {
-              // Render as superscript footnote reference
-              spans.add(TextSpan(
-                style: TextStyle(
-                  color: theme.linkColor,
-                  fontSize: settings.fontSize * 0.65,
+              // Render as raised superscript footnote reference
+              spans.add(WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Transform.translate(
+                  offset: Offset(0, -settings.fontSize * 0.35),
+                  child: Text(
+                    linkText,
+                    style: TextStyle(
+                      color: theme.linkColor,
+                      fontSize: settings.fontSize * 0.6,
+                    ),
+                  ),
                 ),
-                children: _renderInlineChildren(child),
               ));
             } else {
               spans.add(TextSpan(
