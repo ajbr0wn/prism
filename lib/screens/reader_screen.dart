@@ -74,18 +74,43 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void _restoreScrollPosition() {
-    if (_chapterScrollController.hasClients && _savedScrollPosition > 0) {
-      // Delay slightly to ensure content is fully laid out
-      Future.delayed(const Duration(milliseconds: 150), () {
-        if (mounted && _chapterScrollController.hasClients) {
-          final maxScroll = _chapterScrollController.position.maxScrollExtent;
-          _chapterScrollController.jumpTo(
-            _savedScrollPosition.clamp(0.0, maxScroll),
-          );
-        }
+    if (_savedScrollPosition <= 0) return;
+    if (!_chapterScrollController.hasClients) return;
+    // Wait for layout to stabilize by checking maxScrollExtent across frames.
+    // A single postFrameCallback isn't enough — content may still be rendering
+    // (images, rich text layout, etc.). We poll until maxScrollExtent stabilizes
+    // for two consecutive frames, then jump.
+    double lastMaxScroll = -1;
+    int stableFrames = 0;
+    const requiredStableFrames = 2;
+    const maxAttempts = 30; // ~500ms at 60fps, safety limit
+    int attempts = 0;
+
+    void tryRestore() {
+      attempts++;
+      if (!mounted || !_chapterScrollController.hasClients || attempts > maxAttempts) {
         _savedScrollPosition = 0.0;
-      });
+        return;
+      }
+      final maxScroll = _chapterScrollController.position.maxScrollExtent;
+      if (maxScroll == lastMaxScroll && maxScroll > 0) {
+        stableFrames++;
+      } else {
+        stableFrames = 0;
+      }
+      lastMaxScroll = maxScroll;
+
+      if (stableFrames >= requiredStableFrames) {
+        _chapterScrollController.jumpTo(
+          _savedScrollPosition.clamp(0.0, maxScroll),
+        );
+        _savedScrollPosition = 0.0;
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) => tryRestore());
+      }
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => tryRestore());
   }
 
   Future<void> _loadHighlights() async {
