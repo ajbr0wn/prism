@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -37,6 +39,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   ScrollController _chapterScrollController = ScrollController();
   double _savedScrollPosition = 0.0;
   late final LibraryService _libraryService;
+  Timer? _progressTimer;
 
   @override
   void initState() {
@@ -47,11 +50,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _pageController = PageController(initialPage: _currentChapter);
     _loadEpub();
     _loadHighlights();
+    // Save progress every 30 seconds while reading, so we don't lose
+    // position if the app is killed or dispose() doesn't complete.
+    _progressTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _saveProgress();
+    });
   }
 
   @override
   void dispose() {
+    // Progress is saved by PopScope's onPopInvokedWithResult (awaited)
+    // and by the periodic timer. dispose() is a last resort — fire and forget.
     _saveProgress();
+    _progressTimer?.cancel();
     _pageController.dispose();
     _chapterScrollController.dispose();
     _scrollOffset.dispose();
@@ -122,6 +133,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ? _chapterScrollController.offset
         : 0.0;
     _libraryService.updateProgress(
+      widget.book.id,
+      chapterIndex: _currentChapter,
+      scrollPosition: scrollPos,
+    );
+  }
+
+  /// Save before navigating away. Called by PopScope's onPopInvokedWithResult
+  /// which fires before dispose(), giving us time to await the async save.
+  Future<void> _saveBeforeExit() async {
+    final scrollPos = _chapterScrollController.hasClients
+        ? _chapterScrollController.offset
+        : 0.0;
+    await _libraryService.updateProgress(
       widget.book.id,
       chapterIndex: _currentChapter,
       scrollPosition: scrollPos,
@@ -214,7 +238,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
       );
     }
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) await _saveBeforeExit();
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness:
@@ -293,6 +322,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
           ],
         ),
       ),
+    ),  // close PopScope
     );
   }
 
@@ -434,7 +464,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () async {
+                      await _saveBeforeExit();
+                      if (context.mounted) Navigator.pop(context);
+                    },
                   ),
                   Expanded(
                     child: Column(
