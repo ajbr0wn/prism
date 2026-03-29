@@ -101,7 +101,7 @@ class LibraryService extends ChangeNotifier {
       lastScrollPosition: scrollPosition,
     );
     await _saveBooks();
-    // Don't notifyListeners for progress updates to avoid rebuilds
+    notifyListeners();
   }
 
   /// Set the theme for a specific book.
