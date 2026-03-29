@@ -239,9 +239,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
 
     return PopScope(
-      canPop: true,
+      canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) await _saveBeforeExit();
+        if (didPop) return;
+        await _saveBeforeExit();
+        if (context.mounted) Navigator.of(context).pop();
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
