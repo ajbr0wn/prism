@@ -51,8 +51,9 @@ void main() {
     await tester.tap(bookCards.first);
     await tester.pumpAndSettle(const Duration(seconds: 5));
 
-    // Swipe left a few times to get past cover/title pages to a content chapter
-    for (int i = 0; i < 3; i++) {
+    // Swipe to chapter 6 (Liber Novus, 204KB of content)
+    // Chapters 0-5 are: cover, title, contents, author's note, preface, intro
+    for (int i = 0; i < 6; i++) {
       await tester.fling(
         find.byType(Scaffold).first,
         const Offset(-300, 0),
@@ -60,7 +61,7 @@ void main() {
       );
       await tester.pumpAndSettle(const Duration(seconds: 2));
     }
-    debugPrint('Swiped to chapter ~3');
+    debugPrint('Swiped to chapter 6 (Liber Novus)');
 
     // Find the scrollable content
     final scrollables = find.byType(SingleChildScrollView);
