@@ -27,6 +27,7 @@ class _ThemeEditorScreenState extends State<ThemeEditorScreen> {
   late double _vignetteIntensity;
   late double _textShadowBlur;
   Color? _textShadowColor;
+  late TextEditingController _nameController;
 
   @override
   void initState() {
@@ -44,6 +45,13 @@ class _ThemeEditorScreenState extends State<ThemeEditorScreen> {
     _vignetteIntensity = base.vignetteIntensity;
     _textShadowBlur = base.textShadowBlur;
     _textShadowColor = base.textShadowColor;
+    _nameController = TextEditingController(text: _name);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
   }
 
   ReadingTheme get _currentTheme => ReadingTheme(
@@ -167,7 +175,7 @@ class _ThemeEditorScreenState extends State<ThemeEditorScreen> {
                 _SectionLabel('Name'),
                 const SizedBox(height: 8),
                 TextField(
-                  controller: TextEditingController(text: _name),
+                  controller: _nameController,
                   onChanged: (v) => setState(() => _name = v),
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
