@@ -51,6 +51,17 @@ void main() {
     await tester.tap(bookCards.first);
     await tester.pumpAndSettle(const Duration(seconds: 5));
 
+    // Swipe left a few times to get past cover/title pages to a content chapter
+    for (int i = 0; i < 3; i++) {
+      await tester.fling(
+        find.byType(Scaffold).first,
+        const Offset(-300, 0),
+        1000,
+      );
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+    }
+    debugPrint('Swiped to chapter ~3');
+
     // Find the scrollable content
     final scrollables = find.byType(SingleChildScrollView);
     if (scrollables.evaluate().isEmpty) {
@@ -62,9 +73,10 @@ void main() {
       return;
     }
 
-    // Scroll down significantly
+    // Scroll down significantly within the chapter
     await tester.drag(scrollables.first, const Offset(0, -800));
     await tester.pumpAndSettle();
+    debugPrint('Scrolled down 800px in chapter');
 
     // Wait for the periodic save timer (30 seconds)
     await tester.pump(const Duration(seconds: 35));
