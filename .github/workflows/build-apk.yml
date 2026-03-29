@@ -1,4 +1,4 @@
-name: Build APK
+name: Build & Test
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Run tests
+      - name: Run unit tests
         run: flutter test
 
       - name: Build APK
@@ -31,3 +31,40 @@ jobs:
         with:
           name: prism-release
           path: build/app/outputs/flutter-apk/app-release.apk
+
+  integration-test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build integration test APK
+        run: |
+          pushd android
+          flutter build apk --debug
+          popd
+          flutter build apk --debug --target=integration_test/save_state_test.dart
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run on Firebase Test Lab
+        run: |
+          gcloud firebase test android run \
+            --type instrumentation \
+            --app build/app/outputs/flutter-apk/app-debug.apk \
+            --test build/app/outputs/flutter-apk/app-debug-androidTest.apk \
+            --device model=oriole,version=33,locale=en,orientation=portrait \
+            --timeout 5m \
+            --no-record-video
