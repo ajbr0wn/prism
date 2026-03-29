@@ -24,6 +24,11 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.0
+
+flutter_launcher_icons:
+  android: true
+  image_path: "assets/images/prism_icon.png"
 
 flutter:
   uses-material-design: true
@@ -33,3 +38,4 @@ flutter:
 
   assets:
     - test/fixtures/test_book.epub
+    - assets/images/prism_logo.png
