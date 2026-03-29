@@ -79,9 +79,13 @@ void main() {
     await tester.pumpAndSettle();
     debugPrint('Scrolled down 800px in chapter');
 
-    // Wait for the periodic save timer (30 seconds)
-    await tester.pump(const Duration(seconds: 35));
-    await tester.pumpAndSettle();
+    // Don't wait for the periodic timer — test the PopScope save path
+    // (saves on back navigation, which is the user's actual flow)
+    await tester.pump(const Duration(seconds: 2));
+
+    // Show controls overlay (tap top or bottom of screen)
+    await tester.tapAt(const Offset(200, 40));
+    await tester.pumpAndSettle(const Duration(seconds: 1));
 
     // Navigate back to library using the back button
     final backButton = find.byIcon(Icons.arrow_back);

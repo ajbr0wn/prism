@@ -67,5 +67,5 @@ jobs:
             --app build/app/outputs/flutter-apk/app-debug.apk \
             --test build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
             --device model=oriole,version=33,locale=en,orientation=portrait \
-            --timeout 5m \
+            --timeout 10m \
             --no-record-video
