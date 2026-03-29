@@ -67,7 +67,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _chapterScrollController.removeListener(_onScrollChanged);
     _pageController.dispose();
     _chapterScrollController.dispose();
-    _scrollOffset.dispose();
+    // Don't dispose _scrollOffset — ValueListenableBuilder may still
+    // reference it during the teardown build cycle. Let GC handle it.
     super.dispose();
   }
 
@@ -257,7 +258,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
             RepaintBoundary(
               child: ValueListenableBuilder<double>(
                 valueListenable: _scrollOffset,
-                builder: (_, offset, _) => ShaderBackground(
+                builder: (_, offset, __) => ShaderBackground(
                   theme: theme,
                   scrollOffset: offset,
                 ),
