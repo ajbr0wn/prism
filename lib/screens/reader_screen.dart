@@ -159,7 +159,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     setState(() {
       _currentChapter = index;
     });
-    _scrollOffset.value = 0.0;
+    if (mounted) _scrollOffset.value = 0.0;
   }
 
   void _goToChapter(int index) {
@@ -340,7 +340,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
         if (notification is ScrollUpdateNotification) {
-          _scrollOffset.value = notification.metrics.pixels;
+          if (mounted) _scrollOffset.value = notification.metrics.pixels;
         }
         return false;
       },
@@ -407,7 +407,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       return NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           if (notification is ScrollUpdateNotification) {
-            _scrollOffset.value = notification.metrics.pixels;
+            if (mounted) _scrollOffset.value = notification.metrics.pixels;
           }
           return false;
         },
