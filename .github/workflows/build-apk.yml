@@ -48,8 +48,9 @@ jobs:
 
       - name: Build debug APK and test APK
         run: |
+          flutter build apk --debug --target=integration_test/save_state_test.dart
           pushd android
-          ./gradlew app:assembleDebug -Ptarget=integration_test/save_state_test.dart
+          gradle wrapper
           ./gradlew app:assembleAndroidTest
           popd
 
