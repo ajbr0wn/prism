@@ -33,3 +33,4 @@ flutter:
 
   assets:
     - test/fixtures/test_book.epub
+    - assets/images/prism_logo.png

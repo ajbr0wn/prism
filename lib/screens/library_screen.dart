@@ -13,18 +13,14 @@ class LibraryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0e0e16),
+      backgroundColor: const Color(0xFFbbb7d0),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'Prism',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w300,
-            letterSpacing: 4,
-            color: Colors.white,
-          ),
+        title: Image.asset(
+          'assets/images/prism_logo.png',
+          height: 40,
+          fit: BoxFit.contain,
         ),
         centerTitle: true,
       ),
@@ -49,8 +45,8 @@ class LibraryScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _importBook(context),
-        backgroundColor: const Color(0xFF2a2a3e),
-        foregroundColor: Colors.white70,
+        backgroundColor: const Color(0xFF4a4660),
+        foregroundColor: Colors.white,
         child: const Icon(Icons.add),
       ),
     );
