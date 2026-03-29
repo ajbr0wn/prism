@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:prism/main.dart' as app;
 import 'package:prism/services/library_service.dart';
+import 'package:prism/widgets/book_card.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -49,7 +50,7 @@ void main() {
 
     // Tap the first book card to open it
     await tester.pumpAndSettle();
-    final bookCards = find.byType(Card);
+    final bookCards = find.byType(BookCard);
     expect(bookCards, findsWidgets, reason: 'Should find book cards');
     await tester.tap(bookCards.first);
 
@@ -120,7 +121,7 @@ void main() {
         reason: 'Chapter index should be > 0 after swiping to chapter 2 (got ${book.lastChapterIndex})');
 
     // Re-open the book
-    final bookCardsAgain = find.byType(Card);
+    final bookCardsAgain = find.byType(BookCard);
     expect(bookCardsAgain, findsWidgets);
     await tester.tap(bookCardsAgain.first);
     await tester.pump(const Duration(seconds: 3));
