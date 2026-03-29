@@ -30,3 +30,6 @@ flutter:
 
   shaders:
     - shaders/holographic.frag
+
+  assets:
+    - test/fixtures/test_book.epub
