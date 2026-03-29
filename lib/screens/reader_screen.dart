@@ -52,10 +52,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _loadHighlights();
     // Save on scroll-stop: whenever scrolling settles, debounce and save.
     _chapterScrollController.addListener(_onScrollChanged);
+    // Hide system nav bar for immersive reading
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
   void dispose() {
+    // Restore system nav bar when leaving reader
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
     _saveDebounce?.cancel();
     _chapterScrollController.removeListener(_onScrollChanged);
     _pageController.dispose();
