@@ -39,7 +39,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   ScrollController _chapterScrollController = ScrollController();
   double _savedScrollPosition = 0.0;
   late final LibraryService _libraryService;
-  Timer? _progressTimer;
+  Timer? _saveDebounce;
 
   @override
   void initState() {
@@ -50,23 +50,26 @@ class _ReaderScreenState extends State<ReaderScreen> {
     _pageController = PageController(initialPage: _currentChapter);
     _loadEpub();
     _loadHighlights();
-    // Save progress every 30 seconds while reading, so we don't lose
-    // position if the app is killed or dispose() doesn't complete.
-    _progressTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      _saveProgress();
-    });
+    // Save on scroll-stop: whenever scrolling settles, debounce and save.
+    _chapterScrollController.addListener(_onScrollChanged);
   }
 
   @override
   void dispose() {
-    // Progress is saved by PopScope's onPopInvokedWithResult (awaited)
-    // and by the periodic timer. dispose() is a last resort — fire and forget.
-    _saveProgress();
-    _progressTimer?.cancel();
+    _saveDebounce?.cancel();
+    _chapterScrollController.removeListener(_onScrollChanged);
     _pageController.dispose();
     _chapterScrollController.dispose();
     _scrollOffset.dispose();
     super.dispose();
+  }
+
+  /// Debounced scroll listener — saves position 500ms after scrolling stops.
+  void _onScrollChanged() {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 500), () {
+      _saveProgress();
+    });
   }
 
   Future<void> _loadEpub() async {
@@ -139,23 +142,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  /// Save before navigating away. Called by PopScope's onPopInvokedWithResult
-  /// which fires before dispose(), giving us time to await the async save.
-  Future<void> _saveBeforeExit() async {
-    final scrollPos = _chapterScrollController.hasClients
-        ? _chapterScrollController.offset
-        : 0.0;
-    await _libraryService.updateProgress(
-      widget.book.id,
-      chapterIndex: _currentChapter,
-      scrollPosition: scrollPos,
-    );
-  }
 
   void _onChapterChanged(int index) {
     _saveProgress();
+    _chapterScrollController.removeListener(_onScrollChanged);
     _chapterScrollController.dispose();
     _chapterScrollController = ScrollController();
+    _chapterScrollController.addListener(_onScrollChanged);
     setState(() {
       _currentChapter = index;
     });
@@ -238,14 +231,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       );
     }
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) return;
-        await _saveBeforeExit();
-        if (context.mounted) Navigator.of(context).pop();
-      },
-      child: AnnotatedRegion<SystemUiOverlayStyle>(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness:
@@ -324,7 +310,6 @@ class _ReaderScreenState extends State<ReaderScreen> {
           ],
         ),
       ),
-    ),  // close PopScope
     );
   }
 
@@ -466,10 +451,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () async {
-                      await _saveBeforeExit();
-                      if (context.mounted) Navigator.pop(context);
-                    },
+                    onPressed: () => Navigator.pop(context),
                   ),
                   Expanded(
                     child: Column(
