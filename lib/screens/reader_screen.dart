@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -234,6 +235,102 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
+  void _openTableOfContents(dynamic theme) {
+    if (_epub == null) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.3,
+        maxChildSize: 0.85,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: theme.backgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            border: Border(
+              top: BorderSide(
+                color: theme.accentColor.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.textColor.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Title
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Text(
+                  'Table of Contents',
+                  style: TextStyle(
+                    color: theme.headingColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Divider(color: theme.accentColor.withValues(alpha: 0.15), height: 1),
+              // Chapter list
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  itemCount: _epub!.chapters.length,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemBuilder: (context, index) {
+                    final isCurrent = index == _currentChapter;
+                    return ListTile(
+                      dense: true,
+                      leading: Text(
+                        '${index + 1}',
+                        style: TextStyle(
+                          color: isCurrent
+                              ? theme.accentColor
+                              : theme.textColor.withValues(alpha: 0.3),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      title: Text(
+                        _epub!.chapters[index].title,
+                        style: TextStyle(
+                          color: isCurrent
+                              ? theme.accentColor
+                              : theme.textColor,
+                          fontSize: 15,
+                          fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                      trailing: isCurrent
+                          ? Icon(Icons.bookmark, size: 16, color: theme.accentColor)
+                          : null,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _goToChapter(index);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Watch services for reactive updates
@@ -411,6 +508,27 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
     final contentWidgets = renderer.render(chapter.content);
 
+    // Show cover image at the start of the first chapter
+    final allWidgets = <Widget>[];
+    if (chapterIndex == 0 && _epub!.coverImageBytes != null) {
+      allWidgets.add(
+        Padding(
+          padding: EdgeInsets.only(bottom: readingSettings.fontSize * 1.5),
+          child: Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Image.memory(
+                Uint8List.fromList(_epub!.coverImageBytes!),
+                fit: BoxFit.contain,
+                width: double.infinity,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    allWidgets.addAll(contentWidgets);
+
     final content = GestureDetector(
       onTap: _toggleControls,
       behavior: HitTestBehavior.translucent,
@@ -421,7 +539,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: contentWidgets,
+          children: allWidgets,
         ),
       ),
     );
@@ -485,6 +603,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   IconButton(
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
                     onPressed: () => Navigator.pop(context),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.toc, color: Colors.white, size: 22),
+                    onPressed: () {
+                      _toggleControls();
+                      _openTableOfContents(theme);
+                    },
+                    tooltip: 'Table of Contents',
                   ),
                   Expanded(
                     child: Column(
