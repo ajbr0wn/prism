@@ -25,11 +25,10 @@ interface BookEntry {
 /**
  * HTTP endpoint that receives emails via SendGrid Inbound Parse.
  *
- * SendGrid sends a multipart/form-data POST with:
- * - `from`: sender email
- * - `subject`: email subject
- * - `text`: plain text body
- * - attachments as file fields
+ * With send_raw=false, SendGrid sends multipart/form-data with:
+ * - text fields: from, subject, text, etc.
+ * - attachment-info: JSON describing attachments
+ * - file fields named by content-id or index for each attachment
  *
  * Configure SendGrid Inbound Parse to POST to:
  *   https://<region>-<project>.cloudfunctions.net/receiveEmail
@@ -40,20 +39,36 @@ export const receiveEmail = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+  console.log("Received inbound email");
+  console.log("Content-Type:", req.headers["content-type"]);
+
   const busboy = Busboy({headers: req.headers});
   const uploads: Promise<void>[] = [];
   const newBooks: BookEntry[] = [];
+  const fields: Record<string, string> = {};
 
+  // Capture text fields (includes from, subject, attachment-info, etc.)
+  busboy.on("field", (fieldname: string, val: string) => {
+    fields[fieldname] = val;
+    console.log(`Field: ${fieldname} = ${val.substring(0, 200)}`);
+  });
+
+  // Capture file uploads (attachments)
   busboy.on("file", (fieldname: string, file: NodeJS.ReadableStream, info: {filename: string; encoding: string; mimeType: string}) => {
-    const {filename} = info;
-    const ext = filename.substring(filename.lastIndexOf(".")).toLowerCase();
+    const filename = info.filename || fieldname;
+    console.log(`File field: ${fieldname}, filename: ${filename}, type: ${info.mimeType}`);
+
+    const ext = filename.includes(".")
+      ? filename.substring(filename.lastIndexOf(".")).toLowerCase()
+      : "";
 
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      file.resume(); // drain the stream
+      console.log(`Skipping unsupported file: ${filename} (ext: ${ext})`);
+      file.resume();
       return;
     }
 
-    const timestamp = Date.now();
+    const timestamp = Date.now() + uploads.length; // unique per attachment
     const destFileName = `${timestamp}_book${ext}`;
     const storagePath = `books/${destFileName}`;
 
@@ -65,15 +80,13 @@ export const receiveEmail = functions.https.onRequest(async (req, res) => {
 
     const upload = new Promise<void>((resolve, reject) => {
       file.pipe(writeStream);
-      writeStream.on("finish", async () => {
-        // Clean up the title from the filename
+      writeStream.on("finish", () => {
         const baseName = filename
-          .substring(0, filename.lastIndexOf("."))
+          .substring(0, filename.lastIndexOf(".") >= 0 ? filename.lastIndexOf(".") : filename.length)
           .replace(/[_-]/g, " ")
           .replace(/\b\w/g, (c) => c.toUpperCase());
 
         const fileType = ext === ".pdf" ? "pdf" : "epub";
-        // Auto-classify short PDFs or arxiv papers as academic papers
         const category = fileType === "pdf" &&
           (filename.toLowerCase().includes("arxiv") ||
            filename.toLowerCase().includes("paper"))
@@ -82,8 +95,8 @@ export const receiveEmail = functions.https.onRequest(async (req, res) => {
 
         const book: BookEntry = {
           id: timestamp.toString(),
-          title: baseName,
-          author: "Unknown Author",
+          title: baseName || "Untitled",
+          author: fields["from"] || "Unknown Author",
           filePath: storagePath,
           addedAt: new Date().toISOString(),
           coverPath: null,
@@ -96,9 +109,13 @@ export const receiveEmail = functions.https.onRequest(async (req, res) => {
         };
 
         newBooks.push(book);
+        console.log(`Uploaded: ${filename} -> ${storagePath}`);
         resolve();
       });
-      writeStream.on("error", reject);
+      writeStream.on("error", (err) => {
+        console.error(`Upload failed for ${filename}:`, err);
+        reject(err);
+      });
     });
 
     uploads.push(upload);
@@ -108,12 +125,14 @@ export const receiveEmail = functions.https.onRequest(async (req, res) => {
     try {
       await Promise.all(uploads);
 
+      console.log(`Processing complete. Fields: ${Object.keys(fields).join(", ")}. Files: ${newBooks.length}`);
+
       if (newBooks.length === 0) {
+        console.log("No supported attachments found in email");
         res.status(200).send("No supported attachments found");
         return;
       }
 
-      // Add to Firestore library
       const db = admin.firestore();
       const docRef = db.doc(LIBRARY_DOC);
       const doc = await docRef.get();
@@ -124,7 +143,6 @@ export const receiveEmail = functions.https.onRequest(async (req, res) => {
         existingBooks = (data?.books as BookEntry[]) || [];
       }
 
-      // Prepend new books
       const updatedBooks = [...newBooks, ...existingBooks];
 
       await docRef.set({
