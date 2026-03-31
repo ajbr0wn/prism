@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models/book.dart';
 import '../services/library_service.dart';
+import '../services/sync_service.dart';
 import '../widgets/book_card.dart';
 import 'pdf_reader_screen.dart';
 import 'reader_screen.dart';
@@ -44,6 +45,9 @@ class _LibraryScreenState extends State<LibraryScreen>
           fit: BoxFit.contain,
         ),
         centerTitle: true,
+        actions: [
+          _buildSyncIndicator(context),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: const Color(0xFF4a4660),
@@ -107,6 +111,42 @@ class _LibraryScreenState extends State<LibraryScreen>
         foregroundColor: Colors.white,
         child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  Widget _buildSyncIndicator(BuildContext context) {
+    SyncService? syncService;
+    try {
+      syncService = context.watch<SyncService>();
+    } catch (_) {
+      // SyncService not provided — local-only mode
+      return const SizedBox.shrink();
+    }
+
+    if (!syncService.available) {
+      return const Padding(
+        padding: EdgeInsets.only(right: 12),
+        child: Icon(Icons.cloud_off, size: 18, color: Colors.white24),
+      );
+    }
+
+    if (syncService.syncing) {
+      return const Padding(
+        padding: EdgeInsets.only(right: 12),
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Colors.white38,
+          ),
+        ),
+      );
+    }
+
+    return const Padding(
+      padding: EdgeInsets.only(right: 12),
+      child: Icon(Icons.cloud_done_outlined, size: 18, color: Colors.white38),
     );
   }
 

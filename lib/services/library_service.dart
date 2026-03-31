@@ -8,14 +8,21 @@ import 'package:pdfrx/pdfrx.dart';
 
 import '../models/book.dart';
 import 'epub_service.dart';
+import 'sync_service.dart';
 
 class LibraryService extends ChangeNotifier {
   List<Book> _books = [];
   String? _storagePath;
   bool _initialized = false;
+  SyncService? _syncService;
 
   List<Book> get books => List.unmodifiable(_books);
   bool get initialized => _initialized;
+
+  /// Set the sync service for cloud persistence.
+  void setSyncService(SyncService syncService) {
+    _syncService = syncService;
+  }
 
   Future<void> init() async {
     if (_initialized) return;
@@ -25,6 +32,20 @@ class LibraryService extends ChangeNotifier {
     await Directory('$_storagePath/books').create(recursive: true);
     await Directory('$_storagePath/covers').create(recursive: true);
     await _loadBooks();
+
+    // Try to restore books from cloud
+    if (_syncService != null && _syncService!.available) {
+      try {
+        final remoteBooks = await _syncService!.loadLibrary();
+        if (remoteBooks != null && remoteBooks.isNotEmpty) {
+          _books = await _syncService!.restoreMissingBooks(_books, remoteBooks);
+          await _saveBooks();
+        }
+      } catch (e) {
+        debugPrint('Cloud restore failed (continuing with local): $e');
+      }
+    }
+
     _initialized = true;
     notifyListeners();
   }
@@ -73,6 +94,7 @@ class LibraryService extends ChangeNotifier {
     _books.insert(0, book);
     await _saveBooks();
     notifyListeners();
+    _syncBookFiles(book); // background sync
     return book;
   }
 
@@ -158,6 +180,7 @@ class LibraryService extends ChangeNotifier {
     _books.insert(0, book);
     await _saveBooks();
     notifyListeners();
+    _syncBookFiles(book); // background sync
     return book;
   }
 
@@ -238,5 +261,21 @@ class LibraryService extends ChangeNotifier {
     final file = File('$_storagePath/library.json');
     final json = _books.map((b) => b.toJson()).toList();
     await file.writeAsString(jsonEncode(json));
+
+    // Sync to cloud in the background
+    _syncService?.saveLibrary(_books);
+  }
+
+  /// Upload a book's files to cloud storage after import.
+  Future<void> _syncBookFiles(Book book) async {
+    if (_syncService == null || !_syncService!.available) return;
+    try {
+      await _syncService!.uploadBook(book.filePath);
+      if (book.coverPath != null) {
+        await _syncService!.uploadCover(book.coverPath!);
+      }
+    } catch (e) {
+      debugPrint('Book file sync failed (local copy preserved): $e');
+    }
   }
 }
