@@ -1,16 +1,21 @@
 # Prism
 
-An Android e-reader with deep visual theming and real-time shader effects. Inspired by the holographic/polychromatic aesthetic of Balatro.
+A holographic e-reader for Android with real-time shader effects and deep visual theming.
 
 ## Features
 
-- EPUB import and reading from device storage
-- 8 built-in reading themes with distinct color palettes
-- 5 GLSL fragment shader effects: holographic, aurora, opalescent, prismatic, ember
-- Per-book theme assignment
-- Reading progress persistence (chapter + scroll position)
-- Cover art extraction and display
-- Custom EPUB parser and XHTML renderer (no heavy dependencies)
+- **EPUB and PDF reading** with full theme support
+- **PDF reflow mode** — extracts text and re-renders it mobile-friendly with adjustable font size, margins, and spacing
+- **LaTeX math rendering** — equations display natively in reflowed academic papers
+- **12 built-in themes** with GLSL shader effects: holographic, aurora, opalescent, prismatic, ember, mandelbrot, julia, oil slick, voronoi, plasma
+- **Books and Papers tabs** — PDFs auto-classify as academic papers or books
+- **In-app links** — internal epub references and footnotes navigate correctly
+- **Table of contents** — chapter list with tap-to-navigate
+- **Highlights** — select text, pick a color, highlights persist per book
+- **Per-book themes** and dark/light mode toggle
+- **Reading progress sync** — chapter position and scroll offset saved automatically
+- **Cloud library** — books and reading state persist across installs via Firebase
+- **Cover art** extracted from EPUBs and rendered from PDF first pages
 
 ## Building
 
@@ -21,16 +26,11 @@ flutter pub get
 flutter build apk --release
 ```
 
-The release APK will be at `build/app/outputs/flutter-apk/app-release.apk`.
-
 ## Architecture
 
-- `lib/models/`: Data models for books and themes
-- `lib/services/`: EPUB parsing, library management, theme management, XHTML rendering
-- `lib/screens/`: Library, reader, and theme picker UI
-- `lib/widgets/`: Shader background, book cards
-- `shaders/`: GLSL fragment shaders for visual effects
-
-## Status
-
-Early prototype. Known areas for improvement: theme selection UI, page-flip navigation, text formatting, shader realism.
+- `lib/models/` — Book, theme, reading settings, highlights
+- `lib/services/` — EPUB/PDF parsing, text extraction, reflow rendering, library sync
+- `lib/screens/` — Library, EPUB reader, PDF reader, theme picker, settings
+- `lib/widgets/` — Shader background, book cards
+- `shaders/` — GLSL fragment shaders
+- `functions/` — Cloud functions for backend processing
