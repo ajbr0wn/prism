@@ -77,7 +77,7 @@ class EpubService {
       final chapterTitle = _extractChapterTitle(content) ??
           'Chapter ${chapters.length + 1}';
 
-      chapters.add(EpubChapter(title: chapterTitle, content: content));
+      chapters.add(EpubChapter(title: chapterTitle, content: content, href: href));
     }
 
     // 7. Try to extract cover image

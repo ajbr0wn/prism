@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:xml/xml.dart';
 
@@ -15,6 +16,7 @@ class EpubRenderer {
   final void Function(int paragraphIndex, int start, int end, String text, int colorIndex)?
       onHighlight;
   final void Function(String highlightId)? onRemoveHighlight;
+  final void Function(String href)? onLinkTap;
 
   int _paragraphCounter = 0;
 
@@ -24,6 +26,7 @@ class EpubRenderer {
     this.chapterHighlights = const [],
     this.onHighlight,
     this.onRemoveHighlight,
+    this.onLinkTap,
   });
 
   TextStyle get _baseStyle => settings.applyFont(TextStyle(
@@ -116,42 +119,86 @@ class EpubRenderer {
   Widget _renderHeading(XmlElement element, int level) {
     final double size;
     final FontWeight weight;
+    final double letterSpacing;
     switch (level) {
       case 1:
+        size = settings.fontSize * 2.0;
+        weight = FontWeight.w800;
+        letterSpacing = 0.5;
+      case 2:
         size = settings.fontSize * 1.6;
         weight = FontWeight.w700;
-      case 2:
-        size = settings.fontSize * 1.4;
-        weight = FontWeight.w600;
+        letterSpacing = 0.4;
       case 3:
-        size = settings.fontSize * 1.2;
+        size = settings.fontSize * 1.35;
         weight = FontWeight.w600;
+        letterSpacing = 0.3;
       case 4:
-        size = settings.fontSize * 1.1;
+        size = settings.fontSize * 1.15;
         weight = FontWeight.w600;
+        letterSpacing = 0.2;
       default:
         size = settings.fontSize * 1.05;
         weight = FontWeight.w500;
+        letterSpacing = 0.1;
+    }
+
+    final heading = SelectableText.rich(
+      TextSpan(
+        style: settings.applyFont(TextStyle(
+          color: theme.headingColor,
+          fontSize: size,
+          fontWeight: weight,
+          height: 1.25,
+          letterSpacing: letterSpacing,
+        )),
+        children: _renderInlineChildren(element),
+      ),
+      textAlign: level == 1 ? TextAlign.center : settings.textAlign,
+    );
+
+    // H1 gets a subtle accent rule beneath it
+    if (level == 1) {
+      return Padding(
+        padding: EdgeInsets.only(
+          top: settings.fontSize * 2.5,
+          bottom: settings.fontSize * 1.0,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            heading,
+            SizedBox(height: settings.fontSize * 0.6),
+            Container(
+              width: settings.fontSize * 3,
+              height: 1.5,
+              decoration: BoxDecoration(
+                color: theme.accentColor.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // H2 gets more breathing room
+    if (level == 2) {
+      return Padding(
+        padding: EdgeInsets.only(
+          top: settings.fontSize * 2.0,
+          bottom: settings.fontSize * 0.7,
+        ),
+        child: heading,
+      );
     }
 
     return Padding(
       padding: EdgeInsets.only(
-        top: settings.fontSize * (level <= 2 ? 1.5 : 1.0),
-        bottom: settings.fontSize * 0.5,
+        top: settings.fontSize * 1.2,
+        bottom: settings.fontSize * 0.4,
       ),
-      child: SelectableText.rich(
-        TextSpan(
-          style: settings.applyFont(TextStyle(
-            color: theme.headingColor,
-            fontSize: size,
-            fontWeight: weight,
-            height: 1.3,
-            letterSpacing: level <= 2 ? 0.3 : 0.2,
-          )),
-          children: _renderInlineChildren(element),
-        ),
-        textAlign: settings.textAlign,
-      ),
+      child: heading,
     );
   }
 
@@ -383,16 +430,33 @@ class EpubRenderer {
 
   Widget _renderHr() {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: settings.fontSize * 1.2),
-      child: Center(
-        child: Text(
-          '* * *',
-          style: TextStyle(
-            color: theme.accentColor.withValues(alpha: 0.4),
-            fontSize: settings.fontSize,
-            letterSpacing: 8,
+      padding: EdgeInsets.symmetric(vertical: settings.fontSize * 1.8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 0.5,
+              color: theme.accentColor.withValues(alpha: 0.15),
+            ),
           ),
-        ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: settings.fontSize * 1.0),
+            child: Text(
+              '\u2022  \u2022  \u2022',
+              style: TextStyle(
+                color: theme.accentColor.withValues(alpha: 0.35),
+                fontSize: settings.fontSize * 0.5,
+                letterSpacing: 2,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 0.5,
+              color: theme.accentColor.withValues(alpha: 0.15),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -450,6 +514,7 @@ class EpubRenderer {
               ),
             ));
           case 'a':
+            final href = child.getAttribute('href') ?? '';
             // Check if this is a footnote link (short text, likely a number)
             final linkText = _getPlainText(child).trim();
             final isFootnote =
@@ -459,26 +524,44 @@ class EpubRenderer {
               // Render as raised superscript footnote reference
               spans.add(WidgetSpan(
                 alignment: PlaceholderAlignment.middle,
-                child: Transform.translate(
-                  offset: Offset(0, -settings.fontSize * 0.35),
-                  child: Text(
-                    linkText,
-                    style: TextStyle(
-                      color: theme.linkColor,
-                      fontSize: settings.fontSize * 0.6,
+                child: GestureDetector(
+                  onTap: href.isNotEmpty && onLinkTap != null
+                      ? () => onLinkTap!(href)
+                      : null,
+                  child: Transform.translate(
+                    offset: Offset(0, -settings.fontSize * 0.35),
+                    child: Text(
+                      linkText,
+                      style: TextStyle(
+                        color: theme.linkColor,
+                        fontSize: settings.fontSize * 0.6,
+                      ),
                     ),
                   ),
                 ),
               ));
             } else {
-              spans.add(TextSpan(
-                style: TextStyle(
-                  color: theme.linkColor,
-                  decoration: TextDecoration.underline,
-                  decorationColor: theme.linkColor.withValues(alpha: 0.4),
-                ),
-                children: _renderInlineChildren(child),
-              ));
+              if (href.isNotEmpty && onLinkTap != null) {
+                spans.add(TextSpan(
+                  style: TextStyle(
+                    color: theme.linkColor,
+                    decoration: TextDecoration.underline,
+                    decorationColor: theme.linkColor.withValues(alpha: 0.4),
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () => onLinkTap!(href),
+                  children: _renderInlineChildren(child),
+                ));
+              } else {
+                spans.add(TextSpan(
+                  style: TextStyle(
+                    color: theme.linkColor,
+                    decoration: TextDecoration.underline,
+                    decorationColor: theme.linkColor.withValues(alpha: 0.4),
+                  ),
+                  children: _renderInlineChildren(child),
+                ));
+              }
             }
           case 'br':
             spans.add(const TextSpan(text: '\n'));

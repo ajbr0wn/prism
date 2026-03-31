@@ -87,9 +87,11 @@ class ParsedEpub {
 class EpubChapter {
   final String title;
   final String content; // XHTML content
+  final String href; // File path within the epub (e.g. "chapter1.xhtml")
 
   const EpubChapter({
     required this.title,
     required this.content,
+    required this.href,
   });
 }

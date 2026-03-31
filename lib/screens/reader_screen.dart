@@ -172,6 +172,30 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
+  void _handleLinkTap(String href, int currentChapterIndex) {
+    if (_epub == null) return;
+
+    // Parse the href: could be "#anchor", "file.xhtml", or "file.xhtml#anchor"
+    final parts = href.split('#');
+    final filePart = parts[0];
+
+    if (filePart.isEmpty) {
+      // Same-chapter anchor link (e.g. "#footnote1") — no chapter navigation needed
+      // for now, since we don't have per-element anchor scrolling yet
+      return;
+    }
+
+    // Find the target chapter by matching the href against chapter hrefs
+    for (var i = 0; i < _epub!.chapters.length; i++) {
+      final chapterHref = _epub!.chapters[i].href;
+      // Match if the href ends with the file part (handles relative paths)
+      if (chapterHref == filePart || chapterHref.endsWith('/$filePart')) {
+        _goToChapter(i);
+        return;
+      }
+    }
+  }
+
   void _toggleControls() {
     setState(() => _showControls = !_showControls);
   }
@@ -383,6 +407,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       onRemoveHighlight: (highlightId) {
         context.read<HighlightService>().removeHighlight(widget.book.id, highlightId);
       },
+      onLinkTap: (href) => _handleLinkTap(href, chapterIndex),
     );
     final contentWidgets = renderer.render(chapter.content);
 
