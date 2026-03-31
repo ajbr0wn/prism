@@ -18,6 +18,7 @@ dependencies:
   shared_preferences: ^2.3.0
   google_fonts: ^6.2.0
   pdfrx: ^1.0.0
+  flutter_math_fork: ^0.7.0
 
 dev_dependencies:
   flutter_test:
