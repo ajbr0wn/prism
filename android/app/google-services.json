@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1058950519236",
+    "project_id": "app-dev-b74f5",
+    "storage_bucket": "app-dev-b74f5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1058950519236:android:6038acba9db5304d5c6c91",
+        "android_client_info": {
+          "package_name": "com.prismreader.prism"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmd6wE21icwfqqNQK38nlUIvlDXZPPulg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

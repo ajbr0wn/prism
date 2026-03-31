@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'firebase_options.dart';
 import 'services/highlight_service.dart';
 import 'services/library_service.dart';
 import 'services/reading_settings_service.dart';
@@ -23,7 +24,9 @@ void main() async {
   // Try to initialize Firebase — gracefully skip if not configured
   SyncService? syncService;
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     syncService = SyncService();
     await syncService.init();
   } catch (e) {
