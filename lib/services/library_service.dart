@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 import '../models/book.dart';
 import 'epub_service.dart';
@@ -27,7 +29,7 @@ class LibraryService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Import an EPUB file into the library.
+  /// Import a book file (EPUB or PDF) into the library.
   /// Returns the imported Book, or throws on failure.
   Future<Book> importBook(String sourcePath) async {
     if (_storagePath == null) throw StateError('Library not initialized');
@@ -42,10 +44,16 @@ class LibraryService extends ChangeNotifier {
     // Copy file to app storage
     await sourceFile.copy(destPath);
 
-    // Parse epub to get metadata
+    if (ext == 'pdf') {
+      return _importPdf(destPath, timestamp);
+    } else {
+      return _importEpub(destPath, timestamp);
+    }
+  }
+
+  Future<Book> _importEpub(String destPath, int timestamp) async {
     final parsed = await EpubService.parse(destPath);
 
-    // Save cover image if available
     String? coverPath;
     if (parsed.coverImageBytes != null) {
       coverPath = '$_storagePath/covers/${timestamp}_cover.jpg';
@@ -59,20 +67,115 @@ class LibraryService extends ChangeNotifier {
       filePath: destPath,
       addedAt: DateTime.now(),
       coverPath: coverPath,
+      fileType: BookFileType.epub,
     );
 
     _books.insert(0, book);
     await _saveBooks();
     notifyListeners();
-
     return book;
+  }
+
+  Future<Book> _importPdf(String destPath, int timestamp) async {
+    final doc = await PdfDocument.openFile(destPath);
+
+    // Extract metadata
+    var title = 'Unknown Title';
+    var author = 'Unknown Author';
+    final pageCount = doc.pages.length;
+
+    // Try to get metadata from PDF info dictionary
+    try {
+      final info = doc.permissions;
+      // pdfrx exposes limited metadata — use filename as fallback title
+      final fileName = destPath.split('/').last;
+      final baseName = fileName.substring(
+        fileName.indexOf('_') + 1,
+        fileName.lastIndexOf('.'),
+      );
+      // Clean up the title from filename
+      title = baseName
+          .replaceAll('_', ' ')
+          .replaceAll('-', ' ')
+          .split(' ')
+          .where((w) => w.isNotEmpty)
+          .map((w) => w[0].toUpperCase() + w.substring(1))
+          .join(' ');
+      if (title == 'Book') title = 'Untitled PDF';
+    } catch (_) {
+      // Use defaults
+    }
+
+    // Render first page as cover image
+    String? coverPath;
+    try {
+      if (doc.pages.isNotEmpty) {
+        final page = doc.pages[0];
+        final fullWidth = 400.0;
+        final fullHeight = fullWidth * (page.height / page.width);
+        final pdfImage = await page.render(
+          fullWidth: fullWidth,
+          fullHeight: fullHeight,
+        );
+        if (pdfImage != null) {
+          final uiImage = await pdfImage.createImage();
+          final byteData = await uiImage.toByteData(
+            format: ui.ImageByteFormat.png,
+          );
+          uiImage.dispose();
+          if (byteData != null) {
+            coverPath = '$_storagePath/covers/${timestamp}_cover.png';
+            await File(coverPath).writeAsBytes(
+              byteData.buffer.asUint8List(),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Could not render PDF cover: $e');
+    }
+
+    doc.dispose();
+
+    // Auto-detect if this is likely an academic paper:
+    // short page count and filename patterns
+    final isPaper = pageCount <= 40 ||
+        destPath.toLowerCase().contains('arxiv') ||
+        destPath.toLowerCase().contains('paper');
+
+    final book = Book(
+      id: timestamp.toString(),
+      title: title,
+      author: author,
+      filePath: destPath,
+      addedAt: DateTime.now(),
+      coverPath: coverPath,
+      fileType: BookFileType.pdf,
+      category: isPaper ? BookCategory.paper : BookCategory.book,
+      pageCount: pageCount,
+    );
+
+    _books.insert(0, book);
+    await _saveBooks();
+    notifyListeners();
+    return book;
+  }
+
+  /// Update the category of a book (book vs paper).
+  Future<void> setCategory(String bookId, BookCategory category) async {
+    final index = _books.indexWhere((b) => b.id == bookId);
+    if (index < 0) return;
+
+    _books[index] = _books[index].copyWith(category: category);
+    await _saveBooks();
+    notifyListeners();
   }
 
   /// Remove a book from the library and delete its files.
   Future<void> removeBook(String bookId) async {
     final book = _books.firstWhere((b) => b.id == bookId);
 
-    // Delete the epub file
+    // Delete the book file
     final bookFile = File(book.filePath);
     if (await bookFile.exists()) await bookFile.delete();
 

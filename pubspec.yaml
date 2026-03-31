@@ -17,6 +17,7 @@ dependencies:
   provider: ^6.1.0
   shared_preferences: ^2.3.0
   google_fonts: ^6.2.0
+  pdfrx: ^1.0.0
 
 dev_dependencies:
   flutter_test:
@@ -41,4 +42,5 @@ flutter:
 
   assets:
     - test/fixtures/test_book.epub
+    - test/fixtures/test_paper.pdf
     - assets/images/prism_logo.png
