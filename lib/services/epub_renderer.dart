@@ -5,6 +5,7 @@ import 'package:xml/xml.dart';
 import '../models/highlight.dart';
 import '../models/reading_settings.dart';
 import '../models/reading_theme.dart';
+import '../widgets/soft_hyphen_text.dart';
 import 'hyphenation.dart';
 
 /// Converts EPUB XHTML content into styled Flutter widgets.
@@ -260,8 +261,8 @@ class EpubRenderer {
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),
-      child: SelectableText.rich(
-        textSpan,
+      child: SoftHyphenText(
+        textSpan: textSpan,
         textAlign: settings.textAlign,
         contextMenuBuilder: onHighlight != null
             ? (context, editableTextState) =>
@@ -412,8 +413,8 @@ class EpubRenderer {
                     ),
                   ),
                   Expanded(
-                    child: SelectableText.rich(
-                      TextSpan(
+                    child: SoftHyphenText(
+                      textSpan: TextSpan(
                         style: _baseStyle,
                         children: _renderInlineChildren(items[i]),
                       ),
