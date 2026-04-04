@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:prism/main.dart' as app;
+import 'package:prism/main.dart';
 import 'package:prism/models/book.dart';
 import 'package:prism/services/library_service.dart';
 import 'package:prism/widgets/book_card.dart';
@@ -29,9 +29,9 @@ void main() {
       }
     });
 
-    // Launch app
-    // NOTE: Avoid pumpAndSettle — ShaderBackground's Ticker prevents settling.
-    app.main();
+    // Launch app without Firebase — Firebase init and Firestore network calls
+    // can hang on test devices, and we only need local functionality here.
+    mainLocalOnly();
     await tester.pump(const Duration(seconds: 3));
 
     // Copy test PDF from assets to a file path
@@ -47,8 +47,12 @@ void main() {
     final context = tester.element(find.byType(MaterialApp));
     final libraryService = Provider.of<LibraryService>(context, listen: false);
 
+    var initAttempts = 0;
     while (!libraryService.initialized) {
       await tester.pump(const Duration(milliseconds: 100));
+      if (++initAttempts > 100) {
+        fail('LibraryService did not initialize within 10 seconds');
+      }
     }
 
     final booksBefore = libraryService.books.length;

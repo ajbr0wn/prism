@@ -45,6 +45,16 @@ void main() async {
   ));
 }
 
+/// Launch the app without Firebase — for integration tests on devices where
+/// Firebase init or Firestore network calls may hang.
+void mainLocalOnly() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(PrismApp(
+    libraryService: LibraryService(),
+    syncService: null,
+  ));
+}
+
 class PrismApp extends StatelessWidget {
   final LibraryService libraryService;
   final SyncService? syncService;
