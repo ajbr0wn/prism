@@ -30,8 +30,9 @@ void main() {
     });
 
     // Launch app
+    // NOTE: Avoid pumpAndSettle — ShaderBackground's Ticker prevents settling.
     app.main();
-    await tester.pumpAndSettle(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 3));
 
     // Copy test PDF from assets to a file path
     final dir = await getApplicationDocumentsDirectory();
@@ -52,7 +53,7 @@ void main() {
 
     final booksBefore = libraryService.books.length;
     await libraryService.importBook(testPaperPath);
-    await tester.pumpAndSettle(const Duration(seconds: 2));
+    await tester.pump(const Duration(seconds: 2));
 
     // Verify import succeeded
     expect(libraryService.books.length, equals(booksBefore + 1));
@@ -83,7 +84,7 @@ void main() {
     final papersTab = find.text('Papers');
     expect(papersTab, findsOneWidget, reason: 'Should have Papers tab');
     await tester.tap(papersTab);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
 
     // Verify book card shows up
     final bookCards = find.byType(BookCard);
@@ -112,7 +113,7 @@ void main() {
       debugPrint('Navigated back from PDF reader');
     }
 
-    await tester.pumpAndSettle(const Duration(seconds: 2));
+    await tester.pump(const Duration(seconds: 2));
     debugPrint('PDF import and reading test complete');
   });
 }

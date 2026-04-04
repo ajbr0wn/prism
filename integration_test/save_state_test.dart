@@ -32,8 +32,11 @@ void main() {
     });
 
     // Launch app
+    // NOTE: We avoid pumpAndSettle throughout this test because
+    // ShaderBackground's Ticker keeps frames scheduled for ~2s after load,
+    // which causes pumpAndSettle to hang until its 10-minute timeout.
     app.main();
-    await tester.pumpAndSettle(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 3));
 
     // Copy test EPUB from assets to a file path the library service can read
     final dir = await getApplicationDocumentsDirectory();
@@ -56,7 +59,7 @@ void main() {
     // Import if library is empty
     if (libraryService.books.isEmpty) {
       await libraryService.importBook(testBookPath);
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 2));
     }
 
     // Verify we have a book
@@ -65,7 +68,7 @@ void main() {
     debugPrint('Library has ${libraryService.books.length} book(s)');
 
     // Tap the first book card to open it
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
     final bookCards = find.byType(BookCard);
     expect(bookCards, findsWidgets, reason: 'Should find book cards');
     await tester.tap(bookCards.first);
@@ -127,7 +130,7 @@ void main() {
     }
 
     // Wait for library screen
-    await tester.pumpAndSettle(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 3));
     debugPrint('Back on library');
 
     // Verify the saved state — check the book's lastChapterIndex in memory
