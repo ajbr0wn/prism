@@ -200,6 +200,20 @@ class ReadingTheme {
 
   // ── Built-in presets ──
 
+  static const silverware = ReadingTheme(
+    id: 'silverware',
+    name: 'Silverware',
+    isBuiltIn: true,
+    backgroundColor: Color(0xFFB4CBBE),
+    textColor: Color(0xFF341F1F),
+    headingColor: Color(0xFF1A0E82),
+    accentColor: Color(0xFFACA169),
+    linkColor: Color(0xFFAD407C),
+    shaderEffect: ShaderEffect.plasma,
+    shaderIntensity: 0.14,
+    vignetteIntensity: 0.15,
+  );
+
   static const midnightPrism = ReadingTheme(
     id: 'midnight-prism',
     name: 'Midnight Prism',
@@ -364,6 +378,7 @@ class ReadingTheme {
   );
 
   static const List<ReadingTheme> builtInThemes = [
+    silverware,
     midnightPrism,
     opal,
     northernLights,
