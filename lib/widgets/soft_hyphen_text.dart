@@ -85,19 +85,34 @@ class _SoftHyphenTextState extends State<SoftHyphenText> {
     final plainText = widget.textSpan.toPlainText();
     if (!plainText.contains('\u00AD')) return widget.textSpan;
 
+    // Match SelectableText's layout parameters as closely as possible,
+    // especially textScaler — mismatched scaling causes different line
+    // break positions and makes our detection miss hyphens.
     final painter = TextPainter(
       text: widget.textSpan,
       textAlign: widget.textAlign,
       textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
     );
     painter.layout(maxWidth: maxWidth);
 
     final breakPositions = <int>{};
-    for (var i = 0; i < plainText.length; i++) {
-      if (plainText[i] != '\u00AD') continue;
-      final boundary = painter.getLineBoundary(TextPosition(offset: i));
-      if (boundary.end == i + 1) {
-        breakPositions.add(i);
+    // Walk each line and check if it ends on a soft hyphen
+    final lineMetrics = painter.computeLineMetrics();
+    for (final line in lineMetrics) {
+      // Skip the last line (no break after it)
+      if (line.lineNumber == lineMetrics.length - 1) continue;
+      // Get the text offset at the very end of this line
+      final endOfLine = painter.getPositionForOffset(
+        Offset(line.left + line.width, line.baseline),
+      );
+      // The character just before endOfLine.offset ends this line.
+      // If it's a soft hyphen, mark it for replacement.
+      final checkAt = endOfLine.offset - 1;
+      if (checkAt >= 0 &&
+          checkAt < plainText.length &&
+          plainText[checkAt] == '\u00AD') {
+        breakPositions.add(checkAt);
       }
     }
 
