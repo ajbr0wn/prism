@@ -9,7 +9,7 @@ import '../models/reading_theme.dart';
 
 class ThemeService extends ChangeNotifier {
   List<ReadingTheme> _customThemes = [];
-  String _defaultThemeId = ReadingTheme.midnightPrism.id;
+  String _defaultThemeId = ReadingTheme.silverware.id;
   String? _storagePath;
   bool _initialized = false;
 
@@ -77,7 +77,7 @@ class ThemeService extends ChangeNotifier {
   Future<void> deleteCustomTheme(String themeId) async {
     _customThemes.removeWhere((t) => t.id == themeId);
     if (_defaultThemeId == themeId) {
-      _defaultThemeId = ReadingTheme.midnightPrism.id;
+      _defaultThemeId = ReadingTheme.silverware.id;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('defaultThemeId', _defaultThemeId);
     }
@@ -111,6 +111,6 @@ class ThemeService extends ChangeNotifier {
   Future<void> _loadDefaultThemeId() async {
     final prefs = await SharedPreferences.getInstance();
     _defaultThemeId =
-        prefs.getString('defaultThemeId') ?? ReadingTheme.midnightPrism.id;
+        prefs.getString('defaultThemeId') ?? ReadingTheme.silverware.id;
   }
 }
