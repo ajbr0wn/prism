@@ -97,22 +97,24 @@ class _SoftHyphenTextState extends State<SoftHyphenText> {
     painter.layout(maxWidth: maxWidth);
 
     final breakPositions = <int>{};
-    // Walk each line and check if it ends on a soft hyphen
-    final lineMetrics = painter.computeLineMetrics();
-    for (final line in lineMetrics) {
-      // Skip the last line (no break after it)
-      if (line.lineNumber == lineMetrics.length - 1) continue;
-      // Get the text offset at the very end of this line
-      final endOfLine = painter.getPositionForOffset(
-        Offset(line.left + line.width, line.baseline),
-      );
-      // The character just before endOfLine.offset ends this line.
-      // If it's a soft hyphen, mark it for replacement.
-      final checkAt = endOfLine.offset - 1;
-      if (checkAt >= 0 &&
-          checkAt < plainText.length &&
-          plainText[checkAt] == '\u00AD') {
-        breakPositions.add(checkAt);
+    // Walk each soft hyphen and check if it sits at a line break.
+    // Previous approach used getPositionForOffset at line edges, but
+    // soft hyphens are zero-width so the pixel-based hit test misses them.
+    // Instead, use getLineBoundary: if the character after a soft hyphen
+    // starts a new line, that soft hyphen caused the break.
+    for (var i = 0; i < plainText.length; i++) {
+      if (plainText[i] != '\u00AD') continue;
+      if (i + 1 >= plainText.length) continue;
+
+      // Where does the soft hyphen sit vs the next character?
+      final shyLine = painter.getLineBoundary(TextPosition(offset: i));
+      final nextLine =
+          painter.getLineBoundary(TextPosition(offset: i + 1));
+
+      // If the soft hyphen and the next character are on different lines,
+      // this soft hyphen is the line break point — show a visible hyphen.
+      if (shyLine.start != nextLine.start) {
+        breakPositions.add(i);
       }
     }
 
