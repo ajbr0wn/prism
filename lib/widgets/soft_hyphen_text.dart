@@ -5,7 +5,13 @@ import 'package:flutter/material.dart';
 /// Flutter's text engine breaks lines at soft hyphens (\u00AD) but never
 /// renders the visible hyphen glyph. This widget detects which soft hyphens
 /// land at line breaks and replaces them with visible hyphens.
-class SoftHyphenText extends StatelessWidget {
+///
+/// Implementation: first renders the unmodified text, then measures its
+/// actual width via the render tree in a post-frame callback, and rebuilds
+/// with visible hyphens at line break positions. Avoids LayoutBuilder
+/// because wrapping SelectableText.rich in LayoutBuilder causes paragraph
+/// rendering to collapse into empty grey rectangles.
+class SoftHyphenText extends StatefulWidget {
   final TextSpan textSpan;
   final TextAlign textAlign;
   final Widget Function(BuildContext, EditableTextState)? contextMenuBuilder;
@@ -18,37 +24,78 @@ class SoftHyphenText extends StatelessWidget {
   });
 
   @override
+  State<SoftHyphenText> createState() => _SoftHyphenTextState();
+}
+
+class _SoftHyphenTextState extends State<SoftHyphenText> {
+  final _measureKey = GlobalKey();
+  TextSpan? _processedSpan;
+  double? _lastWidth;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleMeasure();
+  }
+
+  @override
+  void didUpdateWidget(SoftHyphenText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.textSpan != widget.textSpan ||
+        oldWidget.textAlign != widget.textAlign) {
+      _processedSpan = null;
+      _lastWidth = null;
+      _scheduleMeasure();
+    }
+  }
+
+  void _scheduleMeasure() {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measureAndFix());
+  }
+
+  void _measureAndFix() {
+    if (!mounted) return;
+    final ctx = _measureKey.currentContext;
+    if (ctx == null) return;
+    final renderBox = ctx.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return;
+
+    final width = renderBox.size.width;
+    if (width <= 0 || width == _lastWidth) return;
+
+    final processed = _fixSoftHyphens(width);
+    if (!mounted) return;
+    setState(() {
+      _processedSpan = processed;
+      _lastWidth = width;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final processed = _fixSoftHyphens(constraints.maxWidth);
-        return SelectableText.rich(
-          processed,
-          textAlign: textAlign,
-          contextMenuBuilder: contextMenuBuilder,
-        );
-      },
+    return SelectableText.rich(
+      _processedSpan ?? widget.textSpan,
+      key: _measureKey,
+      textAlign: widget.textAlign,
+      contextMenuBuilder: widget.contextMenuBuilder,
     );
   }
 
   TextSpan _fixSoftHyphens(double maxWidth) {
-    final plainText = textSpan.toPlainText();
-    if (!plainText.contains('\u00AD')) return textSpan;
+    final plainText = widget.textSpan.toPlainText();
+    if (!plainText.contains('\u00AD')) return widget.textSpan;
 
-    // Layout to find where lines break
     final painter = TextPainter(
-      text: textSpan,
-      textAlign: textAlign,
+      text: widget.textSpan,
+      textAlign: widget.textAlign,
       textDirection: TextDirection.ltr,
     );
     painter.layout(maxWidth: maxWidth);
 
-    // Find soft hyphens that sit at line break positions
     final breakPositions = <int>{};
     for (var i = 0; i < plainText.length; i++) {
       if (plainText[i] != '\u00AD') continue;
       final boundary = painter.getLineBoundary(TextPosition(offset: i));
-      // The soft hyphen is the last character on this line
       if (boundary.end == i + 1) {
         breakPositions.add(i);
       }
@@ -56,10 +103,9 @@ class SoftHyphenText extends StatelessWidget {
 
     painter.dispose();
 
-    if (breakPositions.isEmpty) return textSpan;
+    if (breakPositions.isEmpty) return widget.textSpan;
 
-    // Walk the span tree and replace those soft hyphens with visible hyphens
-    return _replaceInSpan(textSpan, breakPositions, 0).span;
+    return _replaceInSpan(widget.textSpan, breakPositions, 0).span;
   }
 
   static ({TextSpan span, int offset}) _replaceInSpan(
@@ -67,14 +113,12 @@ class SoftHyphenText extends StatelessWidget {
     Set<int> breakPositions,
     int offset,
   ) {
-    // Process this span's direct text
     String? processedText;
     var textEnd = offset;
     if (span.text != null) {
       final text = span.text!;
       textEnd = offset + text.length;
 
-      // Check if any soft hyphens in this text segment need replacing
       bool needsChange = false;
       for (var i = 0; i < text.length; i++) {
         if (text[i] == '\u00AD' && breakPositions.contains(offset + i)) {
@@ -96,7 +140,6 @@ class SoftHyphenText extends StatelessWidget {
       }
     }
 
-    // Process children
     List<InlineSpan>? processedChildren;
     var childOffset = textEnd;
     if (span.children != null) {
@@ -110,7 +153,6 @@ class SoftHyphenText extends StatelessWidget {
           if (!identical(result.span, child)) anyChildChanged = true;
           childOffset = result.offset;
         } else {
-          // WidgetSpan counts as 1 character in toPlainText()
           newChildren.add(child);
           childOffset += 1;
         }
