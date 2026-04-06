@@ -98,90 +98,54 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
 
     final textScaler = MediaQuery.textScalerOf(context);
 
-    // Layout as a SINGLE LINE to get reliable x-coordinates for each
-    // character position. Single-line measurement works on all platforms;
-    // the bug only affects multi-line boundary detection APIs.
+    // Layout MULTI-LINE at the actual width — Flutter will break lines
+    // correctly (including at soft hyphens for better justification).
+    // Then detect which soft hyphens landed at breaks by comparing the
+    // y-coordinates of adjacent visible characters via getBoxesForSelection.
+    //
+    // Previous approaches that FAILED on real Android:
+    // - getLineBoundary: returns wrong boundaries for zero-width soft hyphens
+    // - getPositionForOffset: misses zero-width characters at line edges
+    // - Own line breaking via single-line measurement: computes different
+    //   breaks than Flutter's engine (spaces preferred over soft hyphens)
+    //
+    // getBoxesForSelection returns actual rendered box positions from the
+    // laid-out paragraph — it's the same API used for text selection handles,
+    // so it's reliable on all platforms.
     final painter = TextPainter(
       text: widget.textSpan,
+      textAlign: widget.textAlign,
       textDirection: TextDirection.ltr,
       textScaler: textScaler,
     );
-    painter.layout(maxWidth: double.infinity);
+    painter.layout(maxWidth: maxWidth);
 
-    // Measure the width of a visible hyphen in the base style.
-    final hyphenPainter = TextPainter(
-      text: TextSpan(text: '-', style: widget.textSpan.style),
-      textDirection: TextDirection.ltr,
-      textScaler: textScaler,
-    );
-    hyphenPainter.layout();
-    final hyphenWidth = hyphenPainter.size.width;
-    hyphenPainter.dispose();
-
-    // x-coordinate at a character offset in the single-line layout.
-    double xAt(int offset) {
-      if (offset <= 0) return 0;
-      if (offset >= plainText.length) return painter.size.width;
-      return painter
-          .getOffsetForCaret(TextPosition(offset: offset), Rect.zero)
-          .dx;
-    }
-
-    // Collect all break opportunities (spaces and soft hyphens).
-    final breakOpps = <int>[];
-    for (var i = 0; i < plainText.length; i++) {
-      if (plainText[i] == ' ' || plainText[i] == '\u00AD') {
-        breakOpps.add(i);
-      }
-    }
-
-    // Compute our own line breaks using character widths from the
-    // single-line layout. For each line, binary search for the last
-    // break opportunity where text from lineStart fits within maxWidth.
     final softHyphenBreaks = <int>{};
-    var lineStart = 0;
-    var lineStartX = 0.0;
 
-    while (lineStart < plainText.length) {
-      // Does the remaining text fit on this line?
-      if (xAt(plainText.length) - lineStartX <= maxWidth) break;
+    for (var i = 0; i < plainText.length; i++) {
+      if (plainText[i] != '\u00AD') continue;
+      if (i == 0 || i + 1 >= plainText.length) continue;
 
-      // Break opportunities after lineStart.
-      final opps = breakOpps.where((b) => b > lineStart).toList();
-      if (opps.isEmpty) break;
+      // Get the rendered boxes for the character BEFORE and AFTER
+      // the soft hyphen. If they're on different lines (different y),
+      // the soft hyphen caused a line break.
+      final beforeBoxes = painter.getBoxesForSelection(
+        TextSelection(baseOffset: i - 1, extentOffset: i),
+      );
+      final afterBoxes = painter.getBoxesForSelection(
+        TextSelection(baseOffset: i + 1, extentOffset: i + 2),
+      );
 
-      // Binary search: last break opp that fits.
-      var bestIdx = -1;
-      var lo = 0, hi = opps.length - 1;
-      while (lo <= hi) {
-        final mid = (lo + hi) ~/ 2;
-        final opp = opps[mid];
-        final double width;
-        if (plainText[opp] == '\u00AD') {
-          // Soft hyphen: text before it + visible hyphen.
-          width = (xAt(opp) - lineStartX) + hyphenWidth;
-        } else {
-          // Space: text before it (trailing space is trimmed).
-          width = xAt(opp) - lineStartX;
-        }
-
-        if (width <= maxWidth) {
-          bestIdx = mid;
-          lo = mid + 1;
-        } else {
-          hi = mid - 1;
+      if (beforeBoxes.isNotEmpty && afterBoxes.isNotEmpty) {
+        // Compare vertical positions — different line = different top.
+        final beforeBottom = beforeBoxes.last.bottom;
+        final afterTop = afterBoxes.first.top;
+        if (afterTop >= beforeBottom - 1) {
+          // The character after the soft hyphen starts at or below
+          // where the character before it ends — they're on different lines.
+          softHyphenBreaks.add(i);
         }
       }
-
-      if (bestIdx == -1) break; // first word exceeds line width
-
-      final breakAt = opps[bestIdx];
-      if (plainText[breakAt] == '\u00AD') {
-        softHyphenBreaks.add(breakAt);
-      }
-
-      lineStart = breakAt + 1;
-      lineStartX = xAt(lineStart);
     }
 
     painter.dispose();
