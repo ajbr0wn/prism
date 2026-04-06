@@ -37,8 +37,9 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
   Set<int> _lastBreakPositions = {};
 
   // Cache processed spans so recycled widgets don't re-measure and jump.
-  // Key: plain text hashcode ^ width hashcode. Value: processed span + breaks.
-  static final _cache = <int, ({TextSpan span, Set<int> breaks})>{};
+  // Key: plain text + width string. Using full text avoids hash collisions
+  // that caused wrong styles to be served across paragraphs.
+  static final _cache = <String, ({TextSpan span, Set<int> breaks})>{};
   static const _maxCacheSize = 200;
 
   /// The span after soft hyphen replacement, or null if not yet processed.
@@ -85,7 +86,7 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
 
     // Check cache first — avoids re-measurement and the visible jump
     // when widgets are recycled during scrolling.
-    final cacheKey = plainText.hashCode ^ width.hashCode;
+    final cacheKey = '$plainText@$width';
     final cached = _cache[cacheKey];
     if (cached != null) {
       _lastBreakPositions = cached.breaks;
