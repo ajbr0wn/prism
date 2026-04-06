@@ -53,6 +53,7 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
   @override
   void initState() {
     super.initState();
+    _tryCacheEarly();
     _scheduleMeasure();
   }
 
@@ -63,7 +64,25 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
         oldWidget.textAlign != widget.textAlign) {
       _processedSpan = null;
       _lastWidth = null;
+      _tryCacheEarly();
       _scheduleMeasure();
+    }
+  }
+
+  /// Check cache before the first build so recycled widgets don't flash
+  /// unprocessed text for one frame.
+  void _tryCacheEarly() {
+    final plainText = widget.textSpan.toPlainText();
+    if (!plainText.contains('\u00AD')) return;
+
+    // We don't know the exact width yet, but check if ANY cached width
+    // matches this text. For recycled widgets the width is usually the same.
+    for (final entry in _cache.entries) {
+      if (entry.key.startsWith('$plainText@')) {
+        _processedSpan = entry.value.span;
+        _lastBreakPositions = entry.value.breaks;
+        return;
+      }
     }
   }
 
@@ -154,14 +173,37 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
     return result;
   }
 
+  /// True when we have soft hyphens but no processed span yet (awaiting
+  /// the post-frame measurement). Hide the text during this frame so the
+  /// unprocessed layout doesn't flash before the corrected one appears.
+  bool get _awaitingMeasure {
+    if (_processedSpan != null) return false;
+    final plainText = widget.textSpan.toPlainText();
+    return plainText.contains('\u00AD');
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SelectableText.rich(
+    final child = SelectableText.rich(
       _processedSpan ?? widget.textSpan,
       key: _measureKey,
       textAlign: widget.textAlign,
       contextMenuBuilder: widget.contextMenuBuilder,
     );
+
+    // Hide during measurement frame to prevent flash of unhyphenated text.
+    // The widget still occupies space and gets laid out for measurement.
+    if (_awaitingMeasure) {
+      return Visibility(
+        visible: false,
+        maintainSize: true,
+        maintainAnimation: true,
+        maintainState: true,
+        child: child,
+      );
+    }
+
+    return child;
   }
 
   /// Walk the TextSpan tree and process soft hyphens:
