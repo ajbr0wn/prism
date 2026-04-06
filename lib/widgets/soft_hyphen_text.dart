@@ -124,6 +124,7 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
     }
 
     _lastBreakPositions = softHyphenBreaks;
+    _lastWidth = width;
 
     if (softHyphenBreaks.isEmpty) return;
 
