@@ -178,8 +178,8 @@ void main() {
       isNotEmpty,
       reason: 'At ${testWidth}px with 18px Roboto, the test text must break '
           'at least one soft hyphen. If empty, the detection algorithm '
-          '(getBoxesForSelection y-coordinate comparison) does not work '
-          'on this device.',
+          '(RenderEditable.getBoxesForSelection from actual render tree) '
+          'does not work on this device.',
     );
   });
 

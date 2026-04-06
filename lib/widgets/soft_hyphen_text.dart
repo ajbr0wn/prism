@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/rendering.dart';
 
 /// Fixes Flutter's soft hyphen rendering bug (flutter/flutter#18443).
 ///
 /// Flutter's text engine breaks lines at soft hyphens (\u00AD) but never
-/// renders the visible hyphen glyph. This widget computes its own line
-/// breaks using single-line width measurement, then replaces soft hyphens
-/// at break points with visible '-' and strips the rest.
+/// renders the visible hyphen glyph. This widget detects which soft hyphens
+/// land at line breaks by inspecting the ACTUAL render tree after the first
+/// frame, then rebuilds with visible '-' at those positions.
 ///
-/// Why not use TextPainter's line boundary APIs? getLineBoundary and
-/// getPositionForOffset work in widget tests but fail on real Android
-/// devices — the text shaper reports incorrect boundaries for zero-width
-/// soft hyphens. Single-line width measurement (getOffsetForCaret on a
-/// maxWidth=infinity layout) IS reliable everywhere.
+/// Why inspect the render tree? Creating a separate TextPainter and calling
+/// its line-detection APIs (getLineBoundary, getPositionForOffset,
+/// getBoxesForSelection) all fail on real Android — the separately-created
+/// TextPainter doesn't produce the same line breaks as the actual widget.
+/// Only the real render object has the correct layout.
 class SoftHyphenText extends StatefulWidget {
   final TextSpan textSpan;
   final TextAlign textAlign;
@@ -74,12 +75,59 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
     final width = renderBox.size.width;
     if (width <= 0 || width == _lastWidth) return;
 
-    final processed = _fixSoftHyphens(width);
+    final plainText = widget.textSpan.toPlainText();
+    if (!plainText.contains('\u00AD')) return;
+
+    // Find the actual RenderEditable or RenderParagraph in the render tree.
+    // This is the object that DID the real text layout — its APIs reflect
+    // the actual line breaks, unlike a separately-created TextPainter.
+    final renderEditable = _findRenderEditable(renderBox);
+    if (renderEditable == null) return;
+
+    final softHyphenBreaks = <int>{};
+
+    for (var i = 0; i < plainText.length; i++) {
+      if (plainText[i] != '\u00AD') continue;
+      if (i == 0 || i + 1 >= plainText.length) continue;
+
+      // Get the actual rendered boxes for characters flanking the soft hyphen.
+      // If they have different y-coordinates, the soft hyphen is at a line break.
+      final beforeBoxes = renderEditable.getBoxesForSelection(
+        TextSelection(baseOffset: i - 1, extentOffset: i),
+      );
+      final afterBoxes = renderEditable.getBoxesForSelection(
+        TextSelection(baseOffset: i + 1, extentOffset: i + 2),
+      );
+
+      if (beforeBoxes.isNotEmpty && afterBoxes.isNotEmpty) {
+        final beforeBottom = beforeBoxes.last.bottom;
+        final afterTop = afterBoxes.first.top;
+        if (afterTop >= beforeBottom - 1) {
+          softHyphenBreaks.add(i);
+        }
+      }
+    }
+
+    _lastBreakPositions = softHyphenBreaks;
+
+    if (softHyphenBreaks.isEmpty) return;
+
+    final processed = _replaceInSpan(widget.textSpan, softHyphenBreaks, 0).span;
     if (!mounted) return;
     setState(() {
       _processedSpan = processed;
       _lastWidth = width;
     });
+  }
+
+  /// Walk the render tree to find the RenderEditable (used by SelectableText).
+  static RenderEditable? _findRenderEditable(RenderObject root) {
+    if (root is RenderEditable) return root;
+    RenderEditable? result;
+    root.visitChildren((child) {
+      result ??= _findRenderEditable(child);
+    });
+    return result;
   }
 
   @override
@@ -90,72 +138,6 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
       textAlign: widget.textAlign,
       contextMenuBuilder: widget.contextMenuBuilder,
     );
-  }
-
-  TextSpan _fixSoftHyphens(double maxWidth) {
-    final plainText = widget.textSpan.toPlainText();
-    if (!plainText.contains('\u00AD')) return widget.textSpan;
-
-    final textScaler = MediaQuery.textScalerOf(context);
-
-    // Layout MULTI-LINE at the actual width — Flutter will break lines
-    // correctly (including at soft hyphens for better justification).
-    // Then detect which soft hyphens landed at breaks by comparing the
-    // y-coordinates of adjacent visible characters via getBoxesForSelection.
-    //
-    // Previous approaches that FAILED on real Android:
-    // - getLineBoundary: returns wrong boundaries for zero-width soft hyphens
-    // - getPositionForOffset: misses zero-width characters at line edges
-    // - Own line breaking via single-line measurement: computes different
-    //   breaks than Flutter's engine (spaces preferred over soft hyphens)
-    //
-    // getBoxesForSelection returns actual rendered box positions from the
-    // laid-out paragraph — it's the same API used for text selection handles,
-    // so it's reliable on all platforms.
-    final painter = TextPainter(
-      text: widget.textSpan,
-      textAlign: widget.textAlign,
-      textDirection: TextDirection.ltr,
-      textScaler: textScaler,
-    );
-    painter.layout(maxWidth: maxWidth);
-
-    final softHyphenBreaks = <int>{};
-
-    for (var i = 0; i < plainText.length; i++) {
-      if (plainText[i] != '\u00AD') continue;
-      if (i == 0 || i + 1 >= plainText.length) continue;
-
-      // Get the rendered boxes for the character BEFORE and AFTER
-      // the soft hyphen. If they're on different lines (different y),
-      // the soft hyphen caused a line break.
-      final beforeBoxes = painter.getBoxesForSelection(
-        TextSelection(baseOffset: i - 1, extentOffset: i),
-      );
-      final afterBoxes = painter.getBoxesForSelection(
-        TextSelection(baseOffset: i + 1, extentOffset: i + 2),
-      );
-
-      if (beforeBoxes.isNotEmpty && afterBoxes.isNotEmpty) {
-        // Compare vertical positions — different line = different top.
-        final beforeBottom = beforeBoxes.last.bottom;
-        final afterTop = afterBoxes.first.top;
-        if (afterTop >= beforeBottom - 1) {
-          // The character after the soft hyphen starts at or below
-          // where the character before it ends — they're on different lines.
-          softHyphenBreaks.add(i);
-        }
-      }
-    }
-
-    painter.dispose();
-
-    _lastBreakPositions = softHyphenBreaks;
-
-    // Replace soft hyphens: '-' at break positions, strip elsewhere.
-    // Stripping non-break soft hyphens prevents Flutter from re-breaking
-    // at different positions than we calculated.
-    return _replaceInSpan(widget.textSpan, softHyphenBreaks, 0).span;
   }
 
   /// Walk the TextSpan tree and process soft hyphens:
@@ -174,7 +156,6 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
       final text = span.text!;
       textEnd = offset + text.length;
 
-      // Check if any soft hyphens exist in this text segment.
       bool hasSoftHyphens = false;
       for (var i = 0; i < text.length; i++) {
         if (text[i] == '\u00AD') {
@@ -188,9 +169,8 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
         for (var i = 0; i < text.length; i++) {
           if (text[i] == '\u00AD') {
             if (breakPositions.contains(offset + i)) {
-              buf.write('-'); // visible hyphen at line break
+              buf.write('-');
             }
-            // non-break soft hyphens are stripped (not written)
           } else {
             buf.write(text[i]);
           }
