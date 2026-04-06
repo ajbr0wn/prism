@@ -36,6 +36,11 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
   double? _lastWidth;
   Set<int> _lastBreakPositions = {};
 
+  // Cache processed spans so recycled widgets don't re-measure and jump.
+  // Key: plain text hashcode ^ width hashcode. Value: processed span + breaks.
+  static final _cache = <int, ({TextSpan span, Set<int> breaks})>{};
+  static const _maxCacheSize = 200;
+
   /// The span after soft hyphen replacement, or null if not yet processed.
   @visibleForTesting
   TextSpan? get processedSpan => _processedSpan;
@@ -78,9 +83,21 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
     final plainText = widget.textSpan.toPlainText();
     if (!plainText.contains('\u00AD')) return;
 
-    // Find the actual RenderEditable or RenderParagraph in the render tree.
-    // This is the object that DID the real text layout — its APIs reflect
-    // the actual line breaks, unlike a separately-created TextPainter.
+    // Check cache first — avoids re-measurement and the visible jump
+    // when widgets are recycled during scrolling.
+    final cacheKey = plainText.hashCode ^ width.hashCode;
+    final cached = _cache[cacheKey];
+    if (cached != null) {
+      _lastBreakPositions = cached.breaks;
+      if (!mounted) return;
+      setState(() {
+        _processedSpan = cached.span;
+        _lastWidth = width;
+      });
+      return;
+    }
+
+    // Find the actual RenderEditable in the render tree.
     final renderEditable = _findRenderEditable(renderBox);
     if (renderEditable == null) return;
 
@@ -90,8 +107,6 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
       if (plainText[i] != '\u00AD') continue;
       if (i == 0 || i + 1 >= plainText.length) continue;
 
-      // Get the actual rendered boxes for characters flanking the soft hyphen.
-      // If they have different y-coordinates, the soft hyphen is at a line break.
       final beforeBoxes = renderEditable.getBoxesForSelection(
         TextSelection(baseOffset: i - 1, extentOffset: i),
       );
@@ -113,6 +128,13 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
     if (softHyphenBreaks.isEmpty) return;
 
     final processed = _replaceInSpan(widget.textSpan, softHyphenBreaks, 0).span;
+
+    // Cache the result.
+    if (_cache.length >= _maxCacheSize) {
+      _cache.remove(_cache.keys.first);
+    }
+    _cache[cacheKey] = (span: processed, breaks: softHyphenBreaks);
+
     if (!mounted) return;
     setState(() {
       _processedSpan = processed;
@@ -132,8 +154,26 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
 
   @override
   Widget build(BuildContext context) {
+    // If we haven't processed yet, check cache for an instant hit
+    // to avoid the unprocessed→processed visual jump on first frame.
+    var span = _processedSpan ?? widget.textSpan;
+    if (_processedSpan == null) {
+      final ctx = _measureKey.currentContext;
+      final width = ctx != null
+          ? (ctx.findRenderObject() as RenderBox?)?.size.width
+          : null;
+      if (width != null) {
+        final cacheKey =
+            widget.textSpan.toPlainText().hashCode ^ width.hashCode;
+        final cached = _cache[cacheKey];
+        if (cached != null) {
+          span = cached.span;
+        }
+      }
+    }
+
     return SelectableText.rich(
-      _processedSpan ?? widget.textSpan,
+      span,
       key: _measureKey,
       textAlign: widget.textAlign,
       contextMenuBuilder: widget.contextMenuBuilder,
