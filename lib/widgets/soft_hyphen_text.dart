@@ -155,26 +155,8 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
 
   @override
   Widget build(BuildContext context) {
-    // If we haven't processed yet, check cache for an instant hit
-    // to avoid the unprocessed→processed visual jump on first frame.
-    var span = _processedSpan ?? widget.textSpan;
-    if (_processedSpan == null) {
-      final ctx = _measureKey.currentContext;
-      final width = ctx != null
-          ? (ctx.findRenderObject() as RenderBox?)?.size.width
-          : null;
-      if (width != null) {
-        final cacheKey =
-            widget.textSpan.toPlainText().hashCode ^ width.hashCode;
-        final cached = _cache[cacheKey];
-        if (cached != null) {
-          span = cached.span;
-        }
-      }
-    }
-
     return SelectableText.rich(
-      span,
+      _processedSpan ?? widget.textSpan,
       key: _measureKey,
       textAlign: widget.textAlign,
       contextMenuBuilder: widget.contextMenuBuilder,
