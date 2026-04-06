@@ -209,14 +209,12 @@ void main() {
 
   group('SoftHyphenText span processing', () {
     // Unit test the span replacement logic directly
-    test('_replaceInSpan handles simple text', () {
-      // Test via the public widget indirectly - verify the logic
-      // by checking that soft hyphens at specified positions get replaced
+    test('_replaceInSpan replaces break hyphens and strips others', () {
       const span = TextSpan(text: 'hel\u00ADlo wor\u00ADld');
-      // Position 3 = first soft hyphen, position 8 = second
-      // If position 3 is a break position, it should become '-'
+      // Position 3 = first soft hyphen (break), position 8 = second (not break)
+      // Break position gets '-', non-break gets stripped
       final result = SoftHyphenTextTestHelper.replaceInSpan(span, {3});
-      expect((result as TextSpan).text, 'hel-lo wor\u00ADld');
+      expect((result as TextSpan).text, 'hel-lo world');
     });
 
     test('_replaceInSpan handles nested children', () {
@@ -226,7 +224,7 @@ void main() {
           TextSpan(text: 'de\u00ADf'),
         ],
       );
-      // Position 2 = soft hyphen in parent text, position 6 = soft hyphen in child
+      // Position 2 = soft hyphen in parent (break), position 6 = in child (break)
       // (parent text "ab\u00ADc" is 4 chars, child starts at offset 4)
       final result = SoftHyphenTextTestHelper.replaceInSpan(span, {2, 6});
       final resultSpan = result as TextSpan;
@@ -234,12 +232,11 @@ void main() {
       expect((resultSpan.children![0] as TextSpan).text, 'de-f');
     });
 
-    test('_replaceInSpan leaves non-break soft hyphens alone', () {
+    test('_replaceInSpan strips all soft hyphens when none are breaks', () {
       const span = TextSpan(text: 'hel\u00ADlo');
-      // No break positions
+      // No break positions — soft hyphen should be stripped
       final result = SoftHyphenTextTestHelper.replaceInSpan(span, {});
-      // Should return the same span since nothing changed
-      expect(identical(result, span), isTrue);
+      expect((result as TextSpan).text, 'hello');
     });
   });
 }
@@ -262,19 +259,22 @@ class SoftHyphenTextTestHelper {
       final text = span.text!;
       textEnd = offset + text.length;
 
-      bool needsChange = false;
+      bool hasSoftHyphens = false;
       for (var i = 0; i < text.length; i++) {
-        if (text[i] == '\u00AD' && breakPositions.contains(offset + i)) {
-          needsChange = true;
+        if (text[i] == '\u00AD') {
+          hasSoftHyphens = true;
           break;
         }
       }
 
-      if (needsChange) {
+      if (hasSoftHyphens) {
         final buf = StringBuffer();
         for (var i = 0; i < text.length; i++) {
-          if (text[i] == '\u00AD' && breakPositions.contains(offset + i)) {
-            buf.write('-');
+          if (text[i] == '\u00AD') {
+            if (breakPositions.contains(offset + i)) {
+              buf.write('-');
+            }
+            // non-break soft hyphens are stripped
           } else {
             buf.write(text[i]);
           }
