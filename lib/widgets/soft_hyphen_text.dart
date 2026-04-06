@@ -68,7 +68,10 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
   }
 
   void _scheduleMeasure() {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _measureAndFix());
+    // DIAGNOSTIC: disabled processing to isolate color bug.
+    // If colors are correct with this disabled, the bug is in _measureAndFix.
+    // If colors are still wrong, the bug is elsewhere.
+    // WidgetsBinding.instance.addPostFrameCallback((_) => _measureAndFix());
   }
 
   void _measureAndFix() {
