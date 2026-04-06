@@ -209,12 +209,12 @@ void main() {
 
   group('SoftHyphenText span processing', () {
     // Unit test the span replacement logic directly
-    test('_replaceInSpan replaces break hyphens and strips others', () {
+    test('_replaceInSpan replaces break hyphens and preserves others', () {
       const span = TextSpan(text: 'hel\u00ADlo wor\u00ADld');
       // Position 3 = first soft hyphen (break), position 8 = second (not break)
-      // Break position gets '-', non-break gets stripped
+      // Break position gets '-', non-break stays as \u00AD
       final result = SoftHyphenTextTestHelper.replaceInSpan(span, {3});
-      expect((result as TextSpan).text, 'hel-lo world');
+      expect((result as TextSpan).text, 'hel-lo wor\u00ADld');
     });
 
     test('_replaceInSpan handles nested children', () {
@@ -232,11 +232,11 @@ void main() {
       expect((resultSpan.children![0] as TextSpan).text, 'de-f');
     });
 
-    test('_replaceInSpan strips all soft hyphens when none are breaks', () {
+    test('_replaceInSpan leaves span unchanged when no breaks', () {
       const span = TextSpan(text: 'hel\u00ADlo');
-      // No break positions — soft hyphen should be stripped
+      // No break positions — span should be returned as-is
       final result = SoftHyphenTextTestHelper.replaceInSpan(span, {});
-      expect((result as TextSpan).text, 'hello');
+      expect(identical(result, span), isTrue);
     });
   });
 }
@@ -259,21 +259,19 @@ class SoftHyphenTextTestHelper {
       final text = span.text!;
       textEnd = offset + text.length;
 
-      bool hasSoftHyphens = false;
+      bool hasBreak = false;
       for (var i = 0; i < text.length; i++) {
-        if (text[i] == '\u00AD') {
-          hasSoftHyphens = true;
+        if (text[i] == '\u00AD' && breakPositions.contains(offset + i)) {
+          hasBreak = true;
           break;
         }
       }
 
-      if (hasSoftHyphens) {
+      if (hasBreak) {
         final buf = StringBuffer();
         for (var i = 0; i < text.length; i++) {
-          if (text[i] == '\u00AD') {
-            if (breakPositions.contains(offset + i)) {
-              buf.write('-');
-            }
+          if (text[i] == '\u00AD' && breakPositions.contains(offset + i)) {
+            buf.write('-');
             // non-break soft hyphens are stripped
           } else {
             buf.write(text[i]);

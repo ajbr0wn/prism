@@ -180,21 +180,22 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
       final text = span.text!;
       textEnd = offset + text.length;
 
-      bool hasSoftHyphens = false;
+      // Only replace soft hyphens at break positions with visible '-'.
+      // Leave non-break soft hyphens as-is to minimize text change and
+      // avoid the visible layout jump when the widget rebuilds.
+      bool hasBreak = false;
       for (var i = 0; i < text.length; i++) {
-        if (text[i] == '\u00AD') {
-          hasSoftHyphens = true;
+        if (text[i] == '\u00AD' && breakPositions.contains(offset + i)) {
+          hasBreak = true;
           break;
         }
       }
 
-      if (hasSoftHyphens) {
+      if (hasBreak) {
         final buf = StringBuffer();
         for (var i = 0; i < text.length; i++) {
-          if (text[i] == '\u00AD') {
-            if (breakPositions.contains(offset + i)) {
-              buf.write('-');
-            }
+          if (text[i] == '\u00AD' && breakPositions.contains(offset + i)) {
+            buf.write('-');
           } else {
             buf.write(text[i]);
           }
