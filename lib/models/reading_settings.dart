@@ -13,7 +13,7 @@ class ReadingSettings {
 
   const ReadingSettings({
     this.fontFamily = 'literata',
-    this.fontSize = 18.0,
+    this.fontSize = 16.0,
     this.lineHeight = 1.7,
     this.horizontalMargins = 28.0,
     this.textAlign = TextAlign.justify,
@@ -86,7 +86,7 @@ class ReadingSettings {
   static const marginOptions = [
     (16.0, 'Narrow'),
     (28.0, 'Normal'),
-    (44.0, 'Wide'),
+    (56.0, 'Wide'),
   ];
 
   Map<String, dynamic> toJson() => {
@@ -103,7 +103,7 @@ class ReadingSettings {
   factory ReadingSettings.fromJson(Map<String, dynamic> json) =>
       ReadingSettings(
         fontFamily: json['fontFamily'] as String? ?? 'literata',
-        fontSize: (json['fontSize'] as num?)?.toDouble() ?? 18.0,
+        fontSize: (json['fontSize'] as num?)?.toDouble() ?? 16.0,
         lineHeight: (json['lineHeight'] as num?)?.toDouble() ?? 1.7,
         horizontalMargins:
             (json['horizontalMargins'] as num?)?.toDouble() ?? 28.0,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 /// Fixes Flutter's soft hyphen rendering bug (flutter/flutter#18443).
 ///
@@ -24,13 +25,22 @@ class SoftHyphenText extends StatefulWidget {
   });
 
   @override
-  State<SoftHyphenText> createState() => _SoftHyphenTextState();
+  State<SoftHyphenText> createState() => SoftHyphenTextState();
 }
 
-class _SoftHyphenTextState extends State<SoftHyphenText> {
+class SoftHyphenTextState extends State<SoftHyphenText> {
   final _measureKey = GlobalKey();
   TextSpan? _processedSpan;
   double? _lastWidth;
+  Set<int> _lastBreakPositions = {};
+
+  /// The span after soft hyphen replacement, or null if not yet processed.
+  @visibleForTesting
+  TextSpan? get processedSpan => _processedSpan;
+
+  /// Character offsets where soft hyphens were detected at line breaks.
+  @visibleForTesting
+  Set<int> get breakPositions => _lastBreakPositions;
 
   @override
   void initState() {
@@ -120,6 +130,7 @@ class _SoftHyphenTextState extends State<SoftHyphenText> {
 
     painter.dispose();
 
+    _lastBreakPositions = breakPositions;
     if (breakPositions.isEmpty) return widget.textSpan;
 
     return _replaceInSpan(widget.textSpan, breakPositions, 0).span;

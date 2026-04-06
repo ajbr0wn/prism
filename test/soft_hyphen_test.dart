@@ -116,6 +116,97 @@ void main() {
     });
   });
 
+  group('SoftHyphenText detection and replacement', () {
+    // Helper to pump a SoftHyphenText and wait for post-frame rebuild.
+    Future<SoftHyphenTextState> pumpAndGetState(
+      WidgetTester tester, {
+      required String text,
+      required double width,
+      TextStyle style = const TextStyle(fontSize: 16),
+      TextAlign textAlign = TextAlign.justify,
+    }) async {
+      final key = GlobalKey<SoftHyphenTextState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: width,
+              child: SoftHyphenText(
+                key: key,
+                textSpan: TextSpan(text: text, style: style),
+                textAlign: textAlign,
+              ),
+            ),
+          ),
+        ),
+      );
+      // Let the post-frame measurement callback fire and rebuild.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      return key.currentState!;
+    }
+
+    testWidgets('detection finds break positions at narrow width',
+        (tester) async {
+      // Use the same text/width as the "processed span" test — known to
+      // produce breaks at soft hyphens.
+      final state = await pumpAndGetState(
+        tester,
+        text: 'Justi\u00ADfication is impor\u00ADtant for read\u00ADability',
+        width: 120,
+      );
+
+      expect(
+        state.breakPositions,
+        isNotEmpty,
+        reason: 'Detection should find at least one soft hyphen at a line break',
+      );
+    });
+
+    testWidgets('processed span contains visible hyphens after rebuild',
+        (tester) async {
+      final state = await pumpAndGetState(
+        tester,
+        text: 'Justi\u00ADfication is impor\u00ADtant for read\u00ADability',
+        width: 120,
+      );
+
+      final processed = state.processedSpan;
+      expect(processed, isNotNull,
+          reason: 'Widget should have rebuilt with processed span');
+
+      final plainText = processed!.toPlainText();
+      expect(
+        plainText.contains('-'),
+        isTrue,
+        reason:
+            'Processed text should contain visible hyphens. Got: "$plainText"',
+      );
+    });
+
+    testWidgets('no break positions at wide width', (tester) async {
+      // At 800px, the text fits on one line — no soft hyphens should
+      // be at line breaks.
+      final state = await pumpAndGetState(
+        tester,
+        text: 'Justi\u00ADfication',
+        width: 800,
+      );
+
+      expect(
+        state.breakPositions,
+        isEmpty,
+        reason: 'No soft hyphens should be at line breaks when text fits',
+      );
+      // processedSpan should be null or identical to input (no replacement)
+      final processed = state.processedSpan;
+      if (processed != null) {
+        expect(processed.toPlainText().contains('-'), isFalse);
+      }
+    });
+  });
+
   group('SoftHyphenText span processing', () {
     // Unit test the span replacement logic directly
     test('_replaceInSpan handles simple text', () {
