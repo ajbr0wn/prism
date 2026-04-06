@@ -498,7 +498,7 @@ class EpubRenderer {
                   _getPlainText(child),
                   style: TextStyle(
                     fontSize: settings.fontSize * 0.6,
-                    color: theme.linkColor,
+                    color: theme.textColor,
                   ),
                 ),
               ),
