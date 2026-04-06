@@ -28,12 +28,14 @@ void main() {
     color: Color(0xFF000000),
     fontFamily: 'Roboto',
   );
-  const testWidth = 200.0;
-  // Text with many soft hyphens — at 200px / 18px font, several must break.
+  const testWidth = 100.0;
+  // Text with long hyphenated words at narrow width (100px / 18px ≈ 6 chars).
+  // Words like "justification" (13 chars) MUST break at a soft hyphen.
+  // At 200px the engine could avoid soft hyphen breaks by using spaces,
+  // so we use 100px to force them.
   const testText =
-      'The justi\u00ADfi\u00ADca\u00ADtion of text in read\u00ADing '
-      'appli\u00ADca\u00ADtions creates even mar\u00ADgins that '
-      'im\u00ADprove read\u00ADabil\u00ADity for long-form con\u00ADtent.';
+      'Justi\u00ADfi\u00ADca\u00ADtion im\u00ADproves read\u00ADabil\u00ADity '
+      'in appli\u00ADca\u00ADtions for con\u00ADtent.';
 
   /// Helper: pump a SoftHyphenText widget and wait for post-frame rebuild.
   Future<SoftHyphenTextState> pumpSoftHyphenText(
@@ -176,10 +178,9 @@ void main() {
     expect(
       state.breakPositions,
       isNotEmpty,
-      reason: 'At ${testWidth}px with 18px Roboto, the test text must break '
-          'at least one soft hyphen. If empty, the detection algorithm '
-          '(RenderEditable.getBoxesForSelection from actual render tree) '
-          'does not work on this device.',
+      reason: 'At ${testWidth}px with 18px Roboto, long words must break at '
+          'soft hyphens. If empty, either the detection algorithm failed '
+          'or the RenderEditable was not found in the render tree.',
     );
   });
 
