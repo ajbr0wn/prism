@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -83,7 +84,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   Future<void> _loadEpub() async {
     try {
-      final epub = await EpubService.parse(widget.book.filePath);
+      // On web, get bytes from in-memory storage
+      final library = context.read<LibraryService>();
+      final bytes = kIsWeb ? await library.getBookBytes(widget.book.filePath) : null;
+      final epub = await EpubService.parse(widget.book.filePath, fileBytes: bytes);
       if (mounted) {
         setState(() => _epub = epub);
         // Restore scroll position after the content is built

@@ -48,3 +48,4 @@ flutter:
     - test/fixtures/test_book.epub
     - test/fixtures/test_paper.pdf
     - assets/images/prism_logo.png
+    - assets/test_book.epub
