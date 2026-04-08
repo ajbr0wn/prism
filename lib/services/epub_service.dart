@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:xml/xml.dart';
@@ -8,8 +9,9 @@ import '../models/book.dart';
 
 class EpubService {
   /// Parse an EPUB file into structured content.
-  static Future<ParsedEpub> parse(String filePath) async {
-    final bytes = await File(filePath).readAsBytes();
+  /// On web, pass [fileBytes] directly instead of a file path.
+  static Future<ParsedEpub> parse(String filePath, {Uint8List? fileBytes}) async {
+    final bytes = fileBytes ?? await File(filePath).readAsBytes();
     final archive = ZipDecoder().decodeBytes(bytes);
 
     // 1. Read container.xml to find the root file

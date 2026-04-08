@@ -24,8 +24,27 @@ class LibraryService extends ChangeNotifier {
     _syncService = syncService;
   }
 
+  /// In-memory storage for web: book bytes keyed by path.
+  final Map<String, Uint8List> _webFiles = {};
+
+  /// Get book bytes (works on both web and native).
+  Future<Uint8List> getBookBytes(String filePath) async {
+    if (kIsWeb) {
+      return _webFiles[filePath] ?? Uint8List(0);
+    }
+    return File(filePath).readAsBytes();
+  }
+
   Future<void> init() async {
     if (_initialized) return;
+
+    if (kIsWeb) {
+      // On web, use in-memory storage — no filesystem access.
+      _storagePath = '/web-memory';
+      _initialized = true;
+      notifyListeners();
+      return;
+    }
 
     final dir = await getApplicationDocumentsDirectory();
     _storagePath = '${dir.path}/prism';
@@ -52,18 +71,25 @@ class LibraryService extends ChangeNotifier {
 
   /// Import a book file (EPUB or PDF) into the library.
   /// Returns the imported Book, or throws on failure.
-  Future<Book> importBook(String sourcePath) async {
+  /// On web, pass [bytes] directly since there's no filesystem.
+  Future<Book> importBook(String sourcePath, {Uint8List? bytes}) async {
     if (_storagePath == null) throw StateError('Library not initialized');
 
-    // Generate a unique filename
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final sourceFile = File(sourcePath);
     final ext = sourcePath.split('.').last.toLowerCase();
     final destFileName = '${timestamp}_book.$ext';
     final destPath = '$_storagePath/books/$destFileName';
 
-    // Copy file to app storage
-    await sourceFile.copy(destPath);
+    if (kIsWeb) {
+      // Store bytes in memory
+      if (bytes != null) {
+        _webFiles[destPath] = bytes;
+      }
+    } else {
+      // Copy file to app storage
+      final sourceFile = File(sourcePath);
+      await sourceFile.copy(destPath);
+    }
 
     if (ext == 'pdf') {
       return _importPdf(destPath, timestamp);
@@ -73,12 +99,17 @@ class LibraryService extends ChangeNotifier {
   }
 
   Future<Book> _importEpub(String destPath, int timestamp) async {
-    final parsed = await EpubService.parse(destPath);
+    final Uint8List? epubBytes = kIsWeb ? _webFiles[destPath] : null;
+    final parsed = await EpubService.parse(destPath, fileBytes: epubBytes);
 
     String? coverPath;
     if (parsed.coverImageBytes != null) {
       coverPath = '$_storagePath/covers/${timestamp}_cover.jpg';
-      await File(coverPath).writeAsBytes(parsed.coverImageBytes!);
+      if (kIsWeb) {
+        _webFiles[coverPath] = Uint8List.fromList(parsed.coverImageBytes!);
+      } else {
+        await File(coverPath).writeAsBytes(parsed.coverImageBytes!);
+      }
     }
 
     final book = Book(
@@ -198,14 +229,19 @@ class LibraryService extends ChangeNotifier {
   Future<void> removeBook(String bookId) async {
     final book = _books.firstWhere((b) => b.id == bookId);
 
-    // Delete the book file
-    final bookFile = File(book.filePath);
-    if (await bookFile.exists()) await bookFile.delete();
+    if (kIsWeb) {
+      _webFiles.remove(book.filePath);
+      if (book.coverPath != null) _webFiles.remove(book.coverPath);
+    } else {
+      // Delete the book file
+      final bookFile = File(book.filePath);
+      if (await bookFile.exists()) await bookFile.delete();
 
-    // Delete cover if exists
-    if (book.coverPath != null) {
-      final coverFile = File(book.coverPath!);
-      if (await coverFile.exists()) await coverFile.delete();
+      // Delete cover if exists
+      if (book.coverPath != null) {
+        final coverFile = File(book.coverPath!);
+        if (await coverFile.exists()) await coverFile.delete();
+      }
     }
 
     _books.removeWhere((b) => b.id == bookId);
@@ -243,6 +279,7 @@ class LibraryService extends ChangeNotifier {
   // ── Persistence ──
 
   Future<void> _loadBooks() async {
+    if (kIsWeb) return; // No filesystem on web
     final file = File('$_storagePath/library.json');
     if (!await file.exists()) return;
 
@@ -258,6 +295,7 @@ class LibraryService extends ChangeNotifier {
   }
 
   Future<void> _saveBooks() async {
+    if (kIsWeb) return; // No filesystem on web
     final file = File('$_storagePath/library.json');
     final json = _books.map((b) => b.toJson()).toList();
     await file.writeAsString(jsonEncode(json));

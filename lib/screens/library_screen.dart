@@ -157,7 +157,9 @@ class _LibraryScreenState extends State<LibraryScreen>
       allowedExtensions: ['epub', 'pdf'],
     );
 
-    if (result == null || result.files.single.path == null) return;
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.single;
+    if (!kIsWeb && file.path == null) return;
     if (!context.mounted) return;
 
     final library = context.read<LibraryService>();
@@ -170,7 +172,10 @@ class _LibraryScreenState extends State<LibraryScreen>
           duration: Duration(seconds: 1),
         ),
       );
-      final book = await library.importBook(result.files.single.path!);
+      final book = await library.importBook(
+        file.path ?? file.name,
+        bytes: file.bytes,
+      );
       messenger.showSnackBar(
         SnackBar(content: Text('${book.isPaper ? "Paper" : "Book"} imported!')),
       );
