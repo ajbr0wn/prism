@@ -125,13 +125,23 @@ class ReadingTheme {
   /// If the theme is already in the requested mode, returns itself.
   ReadingTheme withDarkMode(bool dark) {
     if (dark == isDark) return this;
+    // Invert lightness relative to current values rather than using
+    // fixed targets. This preserves the theme's aesthetic (e.g. brown
+    // text stays brown-ish, not pink).
     return copyWith(
-      backgroundColor: _setLightness(backgroundColor, dark ? 0.06 : 0.95),
-      textColor: _setLightness(textColor, dark ? 0.82 : 0.18),
-      headingColor: _setLightness(headingColor, dark ? 0.75 : 0.22),
-      accentColor: _adjustLightness(accentColor, dark ? 0.55 : 0.45),
-      linkColor: _adjustLightness(linkColor, dark ? 0.6 : 0.4),
+      backgroundColor: _invertLightness(backgroundColor),
+      textColor: _invertLightness(textColor),
+      headingColor: _invertLightness(headingColor),
+      accentColor: _invertLightness(accentColor),
+      linkColor: _invertLightness(linkColor),
     );
+  }
+
+  /// Invert lightness: 0.1 → 0.9, 0.8 → 0.2, etc.
+  /// Preserves hue and saturation so colors stay in family.
+  static Color _invertLightness(Color c) {
+    final hsl = HSLColor.fromColor(c);
+    return hsl.withLightness((1.0 - hsl.lightness).clamp(0.05, 0.95)).toColor();
   }
 
   static Color _setLightness(Color c, double l) {
