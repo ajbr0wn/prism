@@ -53,7 +53,6 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
   @override
   void initState() {
     super.initState();
-    _tryCacheEarly();
     _scheduleMeasure();
   }
 
@@ -64,25 +63,7 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
         oldWidget.textAlign != widget.textAlign) {
       _processedSpan = null;
       _lastWidth = null;
-      _tryCacheEarly();
       _scheduleMeasure();
-    }
-  }
-
-  /// Check cache before the first build so recycled widgets don't flash
-  /// unprocessed text for one frame.
-  void _tryCacheEarly() {
-    final plainText = widget.textSpan.toPlainText();
-    if (!plainText.contains('\u00AD')) return;
-
-    // We don't know the exact width yet, but check if ANY cached width
-    // matches this text. For recycled widgets the width is usually the same.
-    for (final entry in _cache.entries) {
-      if (entry.key.startsWith('$plainText@')) {
-        _processedSpan = entry.value.span;
-        _lastBreakPositions = entry.value.breaks;
-        return;
-      }
     }
   }
 
