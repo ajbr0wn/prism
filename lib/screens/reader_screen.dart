@@ -10,6 +10,7 @@ import '../models/book.dart';
 import '../models/highlight.dart';
 import '../services/epub_renderer.dart';
 import '../services/epub_service.dart';
+import '../widgets/soft_hyphen_text.dart';
 import '../services/highlight_service.dart';
 import '../services/library_service.dart';
 import '../services/reading_settings_service.dart';
@@ -89,6 +90,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
       final bytes = kIsWeb ? await library.getBookBytes(widget.book.filePath) : null;
       final epub = await EpubService.parse(widget.book.filePath, fileBytes: bytes);
       if (mounted) {
+        // Pre-measure soft hyphens for all chapters so text renders
+        // with correct hyphens from the first frame — no jump/flash.
+        _preMeasureHyphens(epub);
         setState(() => _epub = epub);
         // Restore scroll position after the content is built
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -97,6 +101,51 @@ class _ReaderScreenState extends State<ReaderScreen> {
       }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  void _preMeasureHyphens(ParsedEpub epub) {
+    final settingsService = context.read<ReadingSettingsService>();
+    final settings = settingsService.settings;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final textWidth = screenWidth - (settings.horizontalMargins * 2);
+    if (textWidth <= 0) return;
+
+    final theme = context.read<ThemeService>().getThemeForBook(widget.book.themeId);
+
+    // Collect all TextSpans from all chapters by rendering them
+    final allSpans = <TextSpan>[];
+    final renderer = EpubRenderer(
+      theme: theme,
+      settings: settings,
+    );
+
+    for (final chapter in epub.chapters) {
+      final widgets = renderer.render(chapter.content);
+      for (final w in widgets) {
+        // Walk the widget tree to find SoftHyphenText instances
+        _extractSpans(w, allSpans);
+      }
+    }
+
+    if (allSpans.isNotEmpty) {
+      SoftHyphenTextState.preMeasure(
+        allSpans,
+        textWidth,
+        settings.textAlign,
+      );
+    }
+  }
+
+  void _extractSpans(Widget w, List<TextSpan> spans) {
+    if (w is SoftHyphenText) {
+      spans.add(w.textSpan);
+    } else if (w is Padding) {
+      if (w.child != null) _extractSpans(w.child!, spans);
+    } else if (w is Column) {
+      for (final child in w.children) {
+        _extractSpans(child, spans);
+      }
     }
   }
 

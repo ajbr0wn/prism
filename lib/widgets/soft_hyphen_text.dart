@@ -42,6 +42,65 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
   static final _cache = <String, ({TextSpan span, Set<int> breaks})>{};
   static const _maxCacheSize = 200;
 
+  /// Pre-measure all soft hyphen break positions for a list of TextSpans
+  /// at a given width. Populates the static cache so that when the widgets
+  /// build, they already have the correct hyphens — no jump, no flash.
+  ///
+  /// Call this during the chapter loading phase before rendering.
+  /// Uses TextPainter which may differ slightly from RenderEditable
+  /// on some devices — the post-frame pass will silently correct any
+  /// mismatches.
+  static void preMeasure(
+    List<TextSpan> spans,
+    double width,
+    TextAlign textAlign,
+  ) {
+    for (final span in spans) {
+      final plainText = span.toPlainText();
+      if (!plainText.contains('\u00AD')) continue;
+
+      final cacheKey = '$plainText@$width';
+      if (_cache.containsKey(cacheKey)) continue;
+
+      final tp = TextPainter(
+        text: span,
+        textAlign: textAlign,
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: width);
+
+      final softHyphenBreaks = <int>{};
+      for (var i = 0; i < plainText.length; i++) {
+        if (plainText[i] != '\u00AD') continue;
+        if (i == 0 || i + 1 >= plainText.length) continue;
+
+        final beforeBoxes = tp.getBoxesForSelection(
+          TextSelection(baseOffset: i - 1, extentOffset: i),
+        );
+        final afterBoxes = tp.getBoxesForSelection(
+          TextSelection(baseOffset: i + 1, extentOffset: i + 2),
+        );
+
+        if (beforeBoxes.isNotEmpty && afterBoxes.isNotEmpty) {
+          final beforeBottom = beforeBoxes.last.bottom;
+          final afterTop = afterBoxes.first.top;
+          if (afterTop >= beforeBottom - 1) {
+            softHyphenBreaks.add(i);
+          }
+        }
+      }
+
+      tp.dispose();
+
+      if (softHyphenBreaks.isEmpty) continue;
+
+      final processed = _replaceInSpan(span, softHyphenBreaks, 0).span;
+      if (_cache.length >= _maxCacheSize) {
+        _cache.remove(_cache.keys.first);
+      }
+      _cache[cacheKey] = (span: processed, breaks: softHyphenBreaks);
+    }
+  }
+
   /// The span after soft hyphen replacement, or null if not yet processed.
   @visibleForTesting
   TextSpan? get processedSpan => _processedSpan;
@@ -53,7 +112,25 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
   @override
   void initState() {
     super.initState();
+    _tryCache();
     _scheduleMeasure();
+  }
+
+  /// Check cache for a pre-measured result at any width.
+  /// If found, use it immediately — avoids the two-phase jump.
+  void _tryCache() {
+    final plainText = widget.textSpan.toPlainText();
+    if (!plainText.contains('\u00AD')) return;
+    for (final entry in _cache.entries) {
+      if (entry.key.startsWith('$plainText@')) {
+        _processedSpan = entry.value.span;
+        _lastBreakPositions = entry.value.breaks;
+        // Extract width from cache key
+        final widthStr = entry.key.substring(plainText.length + 1);
+        _lastWidth = double.tryParse(widthStr);
+        return;
+      }
+    }
   }
 
   @override
