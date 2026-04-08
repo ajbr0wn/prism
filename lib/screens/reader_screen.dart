@@ -105,9 +105,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void _preMeasureHyphens(ParsedEpub epub) {
+    try {
     final settingsService = context.read<ReadingSettingsService>();
     final settings = settingsService.settings;
-    final screenWidth = MediaQuery.of(context).size.width;
+    final mediaQuery = MediaQuery.maybeOf(context);
+    if (mediaQuery == null) return;
+    final screenWidth = mediaQuery.size.width;
     final textWidth = screenWidth - (settings.horizontalMargins * 2);
     if (textWidth <= 0) return;
 
@@ -134,6 +137,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
         textWidth,
         settings.textAlign,
       );
+    }
+    } catch (e) {
+      debugPrint('Pre-measure hyphens failed (will measure on-screen): $e');
     }
   }
 
