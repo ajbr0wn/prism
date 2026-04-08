@@ -79,7 +79,23 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
     if (renderBox == null || !renderBox.hasSize) return;
 
     final width = renderBox.size.width;
-    if (width <= 0 || width == _lastWidth) return;
+    if (width <= 0) return;
+
+    // Width unchanged — no need to re-measure.
+    if (width == _lastWidth) return;
+
+    // Width changed (e.g. margin settings changed) — need to re-measure.
+    // Clear stale results and schedule a re-measure after rebuilding
+    // with the original text (so line breaks are correct for new width).
+    if (_lastWidth != null && _processedSpan != null) {
+      setState(() {
+        _processedSpan = null;
+        _lastBreakPositions = {};
+        _lastWidth = null;
+      });
+      _scheduleMeasure();
+      return;
+    }
 
     final plainText = widget.textSpan.toPlainText();
     if (!plainText.contains('\u00AD')) return;
@@ -154,37 +170,17 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
     return result;
   }
 
-  /// True when we have soft hyphens but no processed span yet (awaiting
-  /// the post-frame measurement). Hide the text during this frame so the
-  /// unprocessed layout doesn't flash before the corrected one appears.
-  bool get _awaitingMeasure {
-    if (_processedSpan != null) return false;
-    final plainText = widget.textSpan.toPlainText();
-    return plainText.contains('\u00AD');
-  }
-
   @override
   Widget build(BuildContext context) {
-    final child = SelectableText.rich(
+    // Always render — the original text with \u00AD is nearly identical
+    // to the processed text since \u00AD is invisible/zero-width.
+    // No more Visibility hiding = no more flash on scroll.
+    return SelectableText.rich(
       _processedSpan ?? widget.textSpan,
       key: _measureKey,
       textAlign: widget.textAlign,
       contextMenuBuilder: widget.contextMenuBuilder,
     );
-
-    // Hide during measurement frame to prevent flash of unhyphenated text.
-    // The widget still occupies space and gets laid out for measurement.
-    if (_awaitingMeasure) {
-      return Visibility(
-        visible: false,
-        maintainSize: true,
-        maintainAnimation: true,
-        maintainState: true,
-        child: child,
-      );
-    }
-
-    return child;
   }
 
   /// Walk the TextSpan tree and process soft hyphens:
