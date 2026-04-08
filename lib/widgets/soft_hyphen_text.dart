@@ -106,11 +106,12 @@ class SoftHyphenTextState extends State<SoftHyphenText> {
     final cached = _cache[cacheKey];
     if (cached != null) {
       _lastBreakPositions = cached.breaks;
-      if (!mounted) return;
-      setState(() {
-        _processedSpan = cached.span;
-        _lastWidth = width;
-      });
+      _lastWidth = width;
+      // Only rebuild if the span actually changed
+      if (!identical(_processedSpan, cached.span)) {
+        if (!mounted) return;
+        setState(() => _processedSpan = cached.span);
+      }
       return;
     }
 
