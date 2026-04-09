@@ -254,6 +254,7 @@ class LibraryService extends ChangeNotifier {
     String bookId, {
     int? chapterIndex,
     double? scrollPosition,
+    int? totalChapters,
   }) async {
     final index = _books.indexWhere((b) => b.id == bookId);
     if (index < 0) return;
@@ -261,9 +262,29 @@ class LibraryService extends ChangeNotifier {
     _books[index] = _books[index].copyWith(
       lastChapterIndex: chapterIndex,
       lastScrollPosition: scrollPosition,
+      totalChapters: totalChapters,
     );
     await _saveBooks();
     notifyListeners();
+  }
+
+  /// Mark a book as just opened (for recent books tracking).
+  Future<void> markOpened(String bookId) async {
+    final index = _books.indexWhere((b) => b.id == bookId);
+    if (index < 0) return;
+
+    _books[index] = _books[index].copyWith(
+      lastOpenedAt: DateTime.now(),
+    );
+    await _saveBooks();
+    notifyListeners();
+  }
+
+  /// The 3 most recently opened books, newest first.
+  List<Book> get recentBooks {
+    final opened = _books.where((b) => b.lastOpenedAt != null).toList()
+      ..sort((a, b) => b.lastOpenedAt!.compareTo(a.lastOpenedAt!));
+    return opened.take(3).toList();
   }
 
   /// Set the theme for a specific book.

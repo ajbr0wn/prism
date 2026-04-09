@@ -144,6 +144,42 @@ class EpubService {
     return null;
   }
 
+  /// Extract the text content of an element with a given ID from XHTML.
+  /// Returns null if the anchor is not found.
+  static String? extractAnchorText(String xhtml, String anchorId) {
+    try {
+      final doc = XmlDocument.parse(xhtml);
+      final element = _findElementById(doc.rootElement, anchorId);
+      if (element != null) {
+        return element.innerText.trim();
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Extract the raw XHTML of an element with a given ID.
+  static String? extractAnchorXhtml(String xhtml, String anchorId) {
+    try {
+      final doc = XmlDocument.parse(xhtml);
+      final element = _findElementById(doc.rootElement, anchorId);
+      if (element != null) {
+        return element.outerXml;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static XmlElement? _findElementById(XmlElement root, String id) {
+    if (root.getAttribute('id') == id) return root;
+    for (final child in root.children) {
+      if (child is XmlElement) {
+        final found = _findElementById(child, id);
+        if (found != null) return found;
+      }
+    }
+    return null;
+  }
+
   static String? _extractChapterTitle(String xhtml) {
     try {
       final doc = XmlDocument.parse(xhtml);

@@ -14,6 +14,8 @@ class Book {
   final BookFileType fileType;
   final BookCategory category;
   final int? pageCount;
+  final int? totalChapters;
+  final DateTime? lastOpenedAt;
 
   const Book({
     required this.id,
@@ -28,10 +30,24 @@ class Book {
     this.fileType = BookFileType.epub,
     this.category = BookCategory.book,
     this.pageCount,
+    this.totalChapters,
+    this.lastOpenedAt,
   });
 
   bool get isPdf => fileType == BookFileType.pdf;
   bool get isPaper => category == BookCategory.paper;
+
+  /// Reading progress as a fraction (0.0–1.0), or null if unknown.
+  double? get readingProgress {
+    if (isPdf) {
+      if (pageCount == null || pageCount! <= 0) return null;
+      if (lastChapterIndex <= 0) return null;
+      return ((lastChapterIndex + 1) / pageCount!).clamp(0.0, 1.0);
+    }
+    if (totalChapters == null || totalChapters! <= 0) return null;
+    if (lastChapterIndex <= 0) return null;
+    return ((lastChapterIndex + 1) / totalChapters!).clamp(0.0, 1.0);
+  }
 
   Book copyWith({
     String? id,
@@ -46,6 +62,8 @@ class Book {
     BookFileType? fileType,
     BookCategory? category,
     int? pageCount,
+    int? totalChapters,
+    DateTime? lastOpenedAt,
   }) {
     return Book(
       id: id ?? this.id,
@@ -60,6 +78,8 @@ class Book {
       fileType: fileType ?? this.fileType,
       category: category ?? this.category,
       pageCount: pageCount ?? this.pageCount,
+      totalChapters: totalChapters ?? this.totalChapters,
+      lastOpenedAt: lastOpenedAt ?? this.lastOpenedAt,
     );
   }
 
@@ -76,6 +96,8 @@ class Book {
         'fileType': fileType.name,
         'category': category.name,
         'pageCount': pageCount,
+        'totalChapters': totalChapters,
+        'lastOpenedAt': lastOpenedAt?.toIso8601String(),
       };
 
   factory Book.fromJson(Map<String, dynamic> json) => Book(
@@ -97,6 +119,10 @@ class Book {
           orElse: () => BookCategory.book,
         ),
         pageCount: json['pageCount'] as int?,
+        totalChapters: json['totalChapters'] as int?,
+        lastOpenedAt: json['lastOpenedAt'] != null
+            ? DateTime.parse(json['lastOpenedAt'] as String)
+            : null,
       );
 }
 
