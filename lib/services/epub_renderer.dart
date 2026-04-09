@@ -16,6 +16,7 @@ class EpubRenderer {
       onHighlight;
   final void Function(String highlightId)? onRemoveHighlight;
   final void Function(String href)? onLinkTap;
+  final void Function(String href)? onLinkLongPress;
 
   int _paragraphCounter = 0;
 
@@ -26,6 +27,7 @@ class EpubRenderer {
     this.onHighlight,
     this.onRemoveHighlight,
     this.onLinkTap,
+    this.onLinkLongPress,
   });
 
   TextStyle get _baseStyle => settings.applyFont(TextStyle(
@@ -523,6 +525,9 @@ class EpubRenderer {
                   onTap: href.isNotEmpty && onLinkTap != null
                       ? () => onLinkTap!(href)
                       : null,
+                  onLongPress: href.isNotEmpty && onLinkLongPress != null
+                      ? () => onLinkLongPress!(href)
+                      : null,
                   child: Transform.translate(
                     offset: Offset(0, -settings.fontSize * 0.35),
                     child: Text(
@@ -536,7 +541,27 @@ class EpubRenderer {
                 ),
               ));
             } else {
-              if (href.isNotEmpty && onLinkTap != null) {
+              if (href.isNotEmpty && onLinkLongPress != null) {
+                // Use WidgetSpan so we can handle both tap and long-press
+                spans.add(WidgetSpan(
+                  alignment: PlaceholderAlignment.baseline,
+                  baseline: TextBaseline.alphabetic,
+                  child: GestureDetector(
+                    onTap: onLinkTap != null ? () => onLinkTap!(href) : null,
+                    onLongPress: () => onLinkLongPress!(href),
+                    child: Text.rich(
+                      TextSpan(
+                        style: _baseStyle.copyWith(
+                          color: theme.linkColor,
+                          decoration: TextDecoration.underline,
+                          decorationColor: theme.linkColor.withValues(alpha: 0.4),
+                        ),
+                        children: _renderInlineChildren(child),
+                      ),
+                    ),
+                  ),
+                ));
+              } else if (href.isNotEmpty && onLinkTap != null) {
                 spans.add(TextSpan(
                   style: TextStyle(
                     color: theme.linkColor,

@@ -15,6 +15,7 @@ import '../services/library_service.dart';
 import '../services/reading_settings_service.dart';
 import '../services/theme_service.dart';
 import '../widgets/shader_background.dart';
+import '../widgets/footnote_popover.dart';
 import 'highlights_screen.dart';
 import 'reading_settings_screen.dart';
 import 'theme_picker_screen.dart';
@@ -152,6 +153,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       widget.book.id,
       chapterIndex: _currentChapter,
       scrollPosition: scrollPos,
+      totalChapters: _epub?.chapters.length,
     );
   }
 
@@ -199,6 +201,59 @@ class _ReaderScreenState extends State<ReaderScreen> {
         return;
       }
     }
+  }
+
+  void _handleLinkLongPress(String href, int currentChapterIndex) {
+    if (_epub == null) return;
+
+    final parts = href.split('#');
+    final filePart = parts[0];
+    final anchor = parts.length > 1 ? parts[1] : null;
+
+    if (anchor == null) return; // No anchor to preview
+
+    // Find the target chapter content
+    String? targetContent;
+    int? targetChapterIndex;
+
+    if (filePart.isEmpty) {
+      // Same-chapter anchor
+      targetContent = _epub!.chapters[currentChapterIndex].content;
+      targetChapterIndex = currentChapterIndex;
+    } else {
+      for (var i = 0; i < _epub!.chapters.length; i++) {
+        final chapterHref = _epub!.chapters[i].href;
+        if (chapterHref == filePart || chapterHref.endsWith('/$filePart')) {
+          targetContent = _epub!.chapters[i].content;
+          targetChapterIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (targetContent == null) return;
+
+    final text = EpubService.extractAnchorText(targetContent, anchor);
+    if (text == null || text.isEmpty) return;
+
+    final themeService = context.read<ThemeService>();
+    final settingsService = context.read<ReadingSettingsService>();
+    final currentBook = context.read<LibraryService>().books.cast<Book?>().firstWhere(
+          (b) => b!.id == widget.book.id,
+          orElse: () => widget.book,
+        )!;
+    final baseTheme = themeService.getThemeForBook(currentBook.themeId);
+    final theme = baseTheme.withDarkMode(settingsService.settings.darkMode);
+
+    final navChapterIndex = targetChapterIndex;
+    FootnotePopover.show(
+      context: context,
+      content: text,
+      theme: theme,
+      onNavigate: navChapterIndex != null && navChapterIndex != currentChapterIndex
+          ? () => _goToChapter(navChapterIndex)
+          : null,
+    );
   }
 
   void _toggleControls() {
@@ -509,6 +564,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         context.read<HighlightService>().removeHighlight(widget.book.id, highlightId);
       },
       onLinkTap: (href) => _handleLinkTap(href, chapterIndex),
+      onLinkLongPress: (href) => _handleLinkLongPress(href, chapterIndex),
     );
     final contentWidgets = renderer.render(chapter.content);
 

@@ -24,6 +24,23 @@ class _LibraryScreenState extends State<LibraryScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    if (kIsWeb) _loadWebTestBook();
+  }
+
+  /// On web, auto-load a bundled test epub so we can test rendering.
+  Future<void> _loadWebTestBook() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+    final library = context.read<LibraryService>();
+    if (library.books.isNotEmpty) return; // already loaded
+    try {
+      final data = await DefaultAssetBundle.of(context)
+          .load('assets/test_book.epub');
+      final bytes = data.buffer.asUint8List();
+      await library.importBook('test_book.epub', bytes: bytes);
+    } catch (e) {
+      debugPrint('Web test book load failed: $e');
+    }
   }
 
   @override
@@ -74,6 +91,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           final allPapers = library.books
               .where((b) => b.isPaper)
               .toList();
+          final recentBooks = library.recentBooks;
 
           return TabBarView(
             controller: _tabController,
@@ -84,8 +102,9 @@ class _LibraryScreenState extends State<LibraryScreen>
                       onImport: () => _importBook(context),
                       message: 'Import an EPUB or PDF to start reading',
                     )
-                  : _BookGrid(
+                  : _BookGridWithRecents(
                       books: allBooks,
+                      recentBooks: recentBooks,
                       onBookTap: (book) => _openBook(context, book),
                       onBookLongPress: (book) => _showBookOptions(context, book),
                     ),
@@ -192,6 +211,7 @@ class _LibraryScreenState extends State<LibraryScreen>
   }
 
   void _openBook(BuildContext context, Book book) {
+    context.read<LibraryService>().markOpened(book.id);
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => book.isPdf
@@ -365,6 +385,104 @@ class _EmptyLibrary extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BookGridWithRecents extends StatelessWidget {
+  final List<Book> books;
+  final List<Book> recentBooks;
+  final void Function(Book) onBookTap;
+  final void Function(Book) onBookLongPress;
+
+  const _BookGridWithRecents({
+    required this.books,
+    required this.recentBooks,
+    required this.onBookTap,
+    required this.onBookLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      slivers: [
+        // Recent books horizontal row
+        if (recentBooks.isNotEmpty) ...[
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Text(
+                'Continue Reading',
+                style: TextStyle(
+                  color: const Color(0xFF2a2640).withValues(alpha: 0.6),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 160,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                itemCount: recentBooks.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final book = recentBooks[index];
+                  return SizedBox(
+                    width: 100,
+                    child: BookCard(
+                      book: book,
+                      onTap: () => onBookTap(book),
+                      onLongPress: () => onBookLongPress(book),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              child: Text(
+                'Library',
+                style: TextStyle(
+                  color: const Color(0xFF2a2640).withValues(alpha: 0.6),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+        ],
+        // Full library grid
+        SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: SliverGrid(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final book = books[index];
+                return BookCard(
+                  book: book,
+                  onTap: () => onBookTap(book),
+                  onLongPress: () => onBookLongPress(book),
+                );
+              },
+              childCount: books.length,
+            ),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              childAspectRatio: 0.65,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
