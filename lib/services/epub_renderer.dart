@@ -5,7 +5,6 @@ import 'package:xml/xml.dart';
 import '../models/highlight.dart';
 import '../models/reading_settings.dart';
 import '../models/reading_theme.dart';
-import 'hyphenation.dart';
 
 /// Converts EPUB XHTML content into styled Flutter widgets.
 /// Supports highlighting, configurable reading settings, and Kindle-style formatting.
@@ -466,12 +465,8 @@ class EpubRenderer {
 
     for (final child in element.children) {
       if (child is XmlText) {
-        var text = child.value.replaceAll(RegExp(r'\s+'), ' ');
+        final text = child.value.replaceAll(RegExp(r'\s+'), ' ');
         if (text.isNotEmpty) {
-          // Insert soft hyphens for better justified text layout
-          if (settings.textAlign == TextAlign.justify) {
-            text = Hyphenation.instance.process(text);
-          }
           spans.add(TextSpan(text: text));
         }
       } else if (child is XmlElement) {
